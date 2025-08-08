@@ -38,10 +38,20 @@ Log.Information("Using connection string from: {Source}",
 var maskedConnectionString = connectionString;
 if (!string.IsNullOrEmpty(connectionString))
 {
-    var passwordPart = connectionString.Split(';').FirstOrDefault(s => s.StartsWith("Password", StringComparison.OrdinalIgnoreCase));
-    if (!string.IsNullOrEmpty(passwordPart))
+    if (connectionString.StartsWith("postgres://") || connectionString.StartsWith("postgresql://"))
     {
-        maskedConnectionString = connectionString.Replace(passwordPart, "Password=***");
+        // Handle URL format: postgres://user:password@host:port/database
+        var regex = new System.Text.RegularExpressions.Regex(@"://([^:]+):([^@]+)@");
+        maskedConnectionString = regex.Replace(connectionString, "://$1:***@");
+    }
+    else
+    {
+        // Handle standard format: Host=...;Password=...;
+        var passwordPart = connectionString.Split(';').FirstOrDefault(s => s.StartsWith("Password", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(passwordPart))
+        {
+            maskedConnectionString = connectionString.Replace(passwordPart, "Password=***");
+        }
     }
 }
 Log.Information("Connection string (masked): {ConnectionString}", maskedConnectionString);
