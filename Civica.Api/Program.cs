@@ -182,19 +182,9 @@ try
     {
         CivicaDbContext context = scope.ServiceProvider.GetRequiredService<CivicaDbContext>();
         
-        // Test connection first
-        var canConnect = context.Database.CanConnect();
-        Log.Information("Database connection test: {CanConnect}", canConnect);
-        
-        if (canConnect)
-        {
-            context.Database.Migrate();
-            Log.Information("Database migration completed successfully");
-        }
-        else
-        {
-            Log.Warning("Cannot connect to database, skipping migration");
-        }
+        // EF Core Migrate() will create the database if it doesn't exist
+        context.Database.Migrate();
+        Log.Information("Database migration completed successfully");
     }
 }
 catch (Exception ex)
@@ -205,6 +195,6 @@ catch (Exception ex)
         throw;
 }
 
-var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 Log.Information("Starting application on port {Port}", port);
 app.Run($"http://0.0.0.0:{port}");
