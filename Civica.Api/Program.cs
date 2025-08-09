@@ -31,6 +31,31 @@ builder.Services.AddSwaggerGen();
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
     ?? builder.Configuration.GetConnectionString("PostgreSQL");
 
+Log.Information("Using connection string from: {Source}", 
+    Environment.GetEnvironmentVariable("DATABASE_URL") != null ? "DATABASE_URL env var" : "appsettings");
+
+// Mask password in connection string for logging
+var maskedConnectionString = connectionString;
+if (!string.IsNullOrEmpty(connectionString))
+{
+    if (connectionString.StartsWith("postgres://") || connectionString.StartsWith("postgresql://"))
+    {
+        // Handle URL format: postgres://user:password@host:port/database
+        var regex = new System.Text.RegularExpressions.Regex(@"://([^:]+):([^@]+)@");
+        maskedConnectionString = regex.Replace(connectionString, "://$1:***@");
+    }
+    else
+    {
+        // Handle standard format: Host=...;Password=...;
+        var passwordPart = connectionString.Split(';').FirstOrDefault(s => s.StartsWith("Password", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(passwordPart))
+        {
+            maskedConnectionString = connectionString.Replace(passwordPart, "Password=***");
+        }
+    }
+}
+Log.Information("Connection string (masked): {ConnectionString}", maskedConnectionString);
+
 if (connectionString?.StartsWith("postgres://") == true)
 {
     // Convert Railway DATABASE_URL format
@@ -44,7 +69,10 @@ if (connectionString?.StartsWith("postgres://") == true)
 }
 
 builder.Services.AddDbContext<CivicaDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+        npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory"))
+    .ConfigureWarnings(warnings =>
+        warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 // Authentication with Supabase JWT
 var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL") 
