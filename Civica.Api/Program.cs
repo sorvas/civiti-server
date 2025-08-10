@@ -10,6 +10,7 @@ using Civica.Api.Services;
 using Civica.Api.Infrastructure.Extensions;
 using Civica.Api.Infrastructure.Middleware;
 using Civica.Api.Infrastructure.Constants;
+using Civica.Api.Infrastructure.Configuration;
 using Civica.Api.Endpoints;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -87,10 +88,33 @@ builder.Services.AddDbContext<CivicaDbContext>(options =>
             warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 // Authentication with Supabase JWT
-var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL")
-                  ?? builder.Configuration["Supabase:Url"];
-var supabaseAnonKey = Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY")
-                      ?? builder.Configuration["Supabase:AnonKey"];
+var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
+if (string.IsNullOrWhiteSpace(supabaseUrl))
+{
+    supabaseUrl = builder.Configuration["Supabase:Url"];
+}
+
+var supabaseAnonKey = Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY");
+if (string.IsNullOrWhiteSpace(supabaseAnonKey))
+{
+    supabaseAnonKey = builder.Configuration["Supabase:AnonKey"];
+}
+
+Log.Information("Supabase URL from env: {EnvUrl}, from config: {ConfigUrl}, using: {FinalUrl}", 
+    Environment.GetEnvironmentVariable("SUPABASE_URL"),
+    builder.Configuration["Supabase:Url"],
+    supabaseUrl);
+
+// Validate Supabase configuration early
+if (string.IsNullOrWhiteSpace(supabaseUrl))
+{
+    throw new InvalidOperationException("Supabase URL not configured. Please set SUPABASE_URL environment variable or configure Supabase:Url in appsettings.json");
+}
+
+if (string.IsNullOrWhiteSpace(supabaseAnonKey))
+{
+    throw new InvalidOperationException("Supabase Anon Key not configured. Please set SUPABASE_ANON_KEY environment variable or configure Supabase:AnonKey in appsettings.json");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -130,6 +154,14 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowCredentials();
     });
+});
+
+// Register Supabase configuration
+// Note: Validation already done above before JWT configuration
+builder.Services.AddSingleton(new SupabaseConfiguration 
+{ 
+    Url = supabaseUrl,
+    AnonKey = supabaseAnonKey
 });
 
 // Custom services
