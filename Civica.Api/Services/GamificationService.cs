@@ -175,7 +175,7 @@ public class GamificationService(
 
                 if (userAchievement == null)
                 {
-                    userAchievement = new()
+                    userAchievement = new UserAchievement
                     {
                         Id = Guid.NewGuid(),
                         UserId = userId,
@@ -459,7 +459,7 @@ public class GamificationService(
             List<LeaderboardEntry> leaderboardEntries = topUsers.Select((user, index) => new LeaderboardEntry
             {
                 Rank = index + 1,
-                User = new()
+                User = new UserInfo
                 {
                     Id = user.Id,
                     DisplayName = user.DisplayName,
@@ -473,7 +473,7 @@ public class GamificationService(
                 RecentBadges = badgesByUser.ContainsKey(user.Id) ? badgesByUser[user.Id] : []
             }).ToList();
 
-            return new()
+            return new LeaderboardResponse
             {
                 Leaderboard = leaderboardEntries,
                 Period = period,

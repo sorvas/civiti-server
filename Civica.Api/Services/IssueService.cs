@@ -39,8 +39,10 @@ public class IssueService(
 
             if (!string.IsNullOrWhiteSpace(request.District))
             {
+                // Use ToLower for case-insensitive comparison that works with SQL
+                var districtLower = request.District.ToLower();
                 query = query.Where(i => i.District != null && 
-                    i.District.Contains(request.District, StringComparison.OrdinalIgnoreCase));
+                    i.District.ToLower().Contains(districtLower));
             }
 
             // Apply sorting
@@ -84,7 +86,7 @@ public class IssueService(
                 })
                 .ToListAsync();
 
-            return new()
+            return new PagedResult<IssueListResponse>
             {
                 Items = items,
                 TotalItems = totalItems,
@@ -116,7 +118,7 @@ public class IssueService(
                 return null;
             }
 
-            return new()
+            return new IssueDetailResponse
             {
                 Id = issue.Id,
                 Title = issue.Title,
@@ -150,7 +152,7 @@ public class IssueService(
                     IsPrimary = p.IsPrimary,
                     CreatedAt = p.CreatedAt
                 }).ToList(),
-                User = new()
+                User = new UserBasicResponse
                 {
                     Id = issue.User.Id,
                     Name = issue.User.DisplayName,
@@ -243,7 +245,7 @@ public class IssueService(
             logger.LogInformation("Issue {IssueId} created successfully by user {UserId}", 
                 issue.Id, userProfile.Id);
 
-            return new()
+            return new CreateIssueResponse
             {
                 Id = issue.Id,
                 Status = issue.Status.ToString(),
@@ -352,7 +354,7 @@ public class IssueService(
 
             if (userProfile == null)
             {
-                return new()
+                return new PagedResult<IssueListResponse>
                 {
                     Items = [],
                     TotalItems = 0,
@@ -415,7 +417,7 @@ public class IssueService(
                 })
                 .ToListAsync();
 
-            return new()
+            return new PagedResult<IssueListResponse>
             {
                 Items = items,
                 TotalItems = totalItems,

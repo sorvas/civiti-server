@@ -154,7 +154,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         // and rely on the Supabase service to validate tokens
         if (!string.IsNullOrWhiteSpace(jwtSecret))
         {
-            options.TokenValidationParameters = new()
+            options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
                 ValidateIssuer = true,
@@ -170,7 +170,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         else
         {
             // Simplified validation - rely on Supabase service for validation
-            options.TokenValidationParameters = new()
+            options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = false,  // Skip signature validation
                 ValidateIssuer = true,

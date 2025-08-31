@@ -20,7 +20,7 @@ public class AuthService(CivicaDbContext context, ISupabaseService supabaseServi
         if (user == null)
             return null;
 
-        return new()
+        return new UserProfileResponse
         {
             Id = user.Id,
             Email = user.Email,
@@ -69,7 +69,7 @@ public class AuthService(CivicaDbContext context, ISupabaseService supabaseServi
         logger.LogInformation("User profile created: {UserId} for Supabase user {SupabaseUserId}", 
             user.Id, supabaseUserId);
 
-        return new()
+        return new UserProfileResponse
         {
             Id = user.Id,
             Email = user.Email,
@@ -120,7 +120,7 @@ public class AuthService(CivicaDbContext context, ISupabaseService supabaseServi
 
         await context.SaveChangesAsync();
 
-        return new()
+        return new UserProfileResponse
         {
             Id = user.Id,
             Email = user.Email,

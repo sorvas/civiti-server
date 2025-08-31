@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 
@@ -16,7 +17,7 @@ public static class DevAuthEndpoints
             .WithOpenApi();
 
         // Test login endpoint for development
-        devAuth.MapPost("/test-login", async (TestLoginRequest request, IConfiguration configuration, HttpClient httpClient) =>
+        devAuth.MapPost("/test-login", async (TestLoginRequest request, IConfiguration configuration, IHttpClientFactory httpClientFactory) =>
         {
             try
             {
@@ -45,9 +46,17 @@ public static class DevAuthEndpoints
                     Encoding.UTF8,
                     "application/json");
 
-                httpClient.DefaultRequestHeaders.Add("apikey", supabaseAnonKey);
+                // Create a new HttpClient instance to avoid header persistence
+                using var httpClient = httpClientFactory.CreateClient();
                 
-                var response = await httpClient.PostAsync(authUrl, jsonContent);
+                // Use HttpRequestMessage for request-scoped headers
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, authUrl)
+                {
+                    Content = jsonContent
+                };
+                httpRequest.Headers.Add("apikey", supabaseAnonKey);
+                
+                var response = await httpClient.SendAsync(httpRequest);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
@@ -93,7 +102,7 @@ public static class DevAuthEndpoints
         .AllowAnonymous();
 
         // Token validation endpoint for debugging
-        devAuth.MapPost("/validate-token", async (TokenValidationRequest request, IConfiguration configuration, HttpClient httpClient) =>
+        devAuth.MapPost("/validate-token", async (TokenValidationRequest request, IConfiguration configuration, IHttpClientFactory httpClientFactory) =>
         {
             try
             {
@@ -109,10 +118,15 @@ public static class DevAuthEndpoints
 
                 var userUrl = $"{supabaseUrl}/auth/v1/user";
                 
-                httpClient.DefaultRequestHeaders.Add("apikey", supabaseServiceKey);
-                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {request.Token}");
+                // Create a new HttpClient instance to avoid header persistence
+                using var httpClient = httpClientFactory.CreateClient();
                 
-                var response = await httpClient.GetAsync(userUrl);
+                // Use HttpRequestMessage for request-scoped headers
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Get, userUrl);
+                httpRequest.Headers.Add("apikey", supabaseServiceKey);
+                httpRequest.Headers.Add("Authorization", $"Bearer {request.Token}");
+                
+                var response = await httpClient.SendAsync(httpRequest);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
