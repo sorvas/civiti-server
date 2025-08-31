@@ -139,11 +139,16 @@ if (string.IsNullOrWhiteSpace(supabaseAnonKey))
     throw new InvalidOperationException(errorMsg);
 }
 
-// In production, JWT secret is REQUIRED for security
-if (builder.Environment.IsProduction() && string.IsNullOrWhiteSpace(jwtSecret))
+// Define security policy based on environment
+bool requireJwtSecret = !builder.Environment.IsDevelopment(); // Consistent check: Dev=optional, all others=required
+string environmentName = builder.Environment.EnvironmentName;
+
+// JWT secret is REQUIRED for all non-development environments (Production, Staging, etc.)
+if (requireJwtSecret && string.IsNullOrWhiteSpace(jwtSecret))
 {
-    var errorMsg = "JWT secret is REQUIRED in production for security. " +
-                   "Set SUPABASE_JWT_SECRET environment variable with your Supabase JWT secret.";
+    var errorMsg = $"JWT secret is REQUIRED in {environmentName} environment for security. " +
+                   "Set SUPABASE_JWT_SECRET environment variable with your Supabase JWT secret. " +
+                   "Only Development environment allows running without JWT secret.";
     Log.Fatal(errorMsg);
     throw new InvalidOperationException(errorMsg);
 }
@@ -151,18 +156,23 @@ if (builder.Environment.IsProduction() && string.IsNullOrWhiteSpace(jwtSecret))
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        // The issuer in Supabase JWTs is the auth endpoint URL
+        // Supabase JWTs can have different issuers depending on version
+        // Check actual token with decode-jwt.html to verify
         var issuer = $"{supabaseUrl}/auth/v1";
         
-        // Fix: Authority should match the issuer for proper validation
-        options.Authority = issuer;  // Changed from supabaseUrl to match ValidIssuer
+        // For debugging - log the expected issuer
+        Log.Information("Configuring JWT validation with issuer: {Issuer}", issuer);
+        
+        // Authority is used for metadata discovery (not used by Supabase)
+        // Setting to supabaseUrl for compatibility
+        options.Authority = supabaseUrl;
         options.Audience = "authenticated";
-        options.RequireHttpsMetadata = builder.Environment.IsProduction();
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment(); // HTTPS required except in dev
         options.SaveToken = true;
         
         if (!string.IsNullOrWhiteSpace(jwtSecret))
         {
-            // Production-ready configuration with full validation
+            // Full validation with signature verification
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
@@ -176,17 +186,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     Encoding.UTF8.GetBytes(jwtSecret))
             };
             
-            Log.Information("JWT validation configured with signature verification");
+            Log.Information("JWT validation configured with signature verification for {Environment}", environmentName);
         }
         else
         {
-            // Development only - still validate structure but not signature
-            if (!builder.Environment.IsDevelopment())
+            // Only allowed in development - consistent with earlier check
+            if (requireJwtSecret) // Same condition as above
             {
-                throw new InvalidOperationException("JWT secret is required for non-development environments");
+                // This should never happen due to earlier check, but keeping for safety
+                throw new InvalidOperationException($"JWT secret is required for {environmentName} environment");
             }
             
-            // WARNING: This is only for development - tokens can be forged!
+            // WARNING: Development only - tokens can be forged!
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = false,  // Development only!
@@ -200,7 +211,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             };
             
             Log.Warning("⚠️ DEVELOPMENT MODE: JWT signature validation is DISABLED. " +
-                       "This is INSECURE and should NEVER be used in production!");
+                       "This is INSECURE and should NEVER be used in production or staging!");
         }
         
         // Log JWT validation events for debugging
