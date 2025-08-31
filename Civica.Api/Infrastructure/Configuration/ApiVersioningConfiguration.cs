@@ -29,7 +29,7 @@ public static class ApiVersioningConfiguration
     {
         return version switch
         {
-            "v1" => new()
+            "v1" => new OpenApiInfo
             {
                 Title = ApiTitle,
                 Version = "v1",

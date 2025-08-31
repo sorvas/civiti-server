@@ -17,7 +17,7 @@ public static class SwaggerConfiguration
     public static void ConfigureSwagger(this SwaggerGenOptions options, IConfiguration configuration)
     {
         // API Info
-        options.SwaggerDoc("v1", new()
+        options.SwaggerDoc("v1", new OpenApiInfo
         {
             Title = "Civica API",
             Version = "v1",
@@ -53,22 +53,22 @@ public static class SwaggerConfiguration
                 - `429 Too Many Requests`: Rate limit exceeded
                 - `500 Internal Server Error`: Server error
                 """,
-            Contact = new()
+            Contact = new OpenApiContact
             {
                 Name = "Civica Support",
                 Email = "support@civica.ro",
-                Url = new("https://civica.ro/support")
+                Url = new Uri("https://civica.ro/support")
             },
-            License = new()
+            License = new OpenApiLicense
             {
                 Name = "MIT License",
-                Url = new("https://opensource.org/licenses/MIT")
+                Url = new Uri("https://opensource.org/licenses/MIT")
             },
-            TermsOfService = new("https://civica.ro/terms")
+            TermsOfService = new Uri("https://civica.ro/terms")
         });
 
         // Security Definition for JWT Bearer
-        options.AddSecurityDefinition("Bearer", new()
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
         {
             Name = "Authorization",
             Type = SecuritySchemeType.Http,
@@ -85,12 +85,12 @@ public static class SwaggerConfiguration
         });
 
         // Security Requirement
-        options.AddSecurityRequirement(new()
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
         {
             {
-                new()
+                new OpenApiSecurityScheme
                 {
-                    Reference = new()
+                    Reference = new OpenApiReference
                     {
                         Type = ReferenceType.SecurityScheme,
                         Id = "Bearer"
@@ -139,14 +139,14 @@ public static class SwaggerConfiguration
         options.ExampleFilters();
 
         // Map types for better documentation
-        options.MapType<DateOnly>(() => new()
+        options.MapType<DateOnly>(() => new OpenApiSchema
         {
             Type = "string",
             Format = "date",
             Example = new Microsoft.OpenApi.Any.OpenApiString("2024-01-15")
         });
 
-        options.MapType<TimeOnly>(() => new()
+        options.MapType<TimeOnly>(() => new OpenApiSchema
         {
             Type = "string",
             Format = "time",
@@ -178,14 +178,14 @@ public class SwaggerOperationFilter : IOperationFilter
         // Add default responses if not already defined
         if (!operation.Responses.ContainsKey("401"))
         {
-            operation.Responses.Add("401", new()
+            operation.Responses.Add("401", new OpenApiResponse
             {
                 Description = "Unauthorized - Invalid or missing authentication token",
                 Content = new Dictionary<string, OpenApiMediaType>
                 {
                     ["application/json"] = new()
                     {
-                        Schema = new()
+                        Schema = new OpenApiSchema
                         {
                             Type = "object",
                             Properties = new Dictionary<string, OpenApiSchema>
@@ -204,14 +204,14 @@ public class SwaggerOperationFilter : IOperationFilter
 
         if (!operation.Responses.ContainsKey("500"))
         {
-            operation.Responses.Add("500", new()
+            operation.Responses.Add("500", new OpenApiResponse
             {
                 Description = "Internal Server Error - An unexpected error occurred",
                 Content = new Dictionary<string, OpenApiMediaType>
                 {
                     ["application/json"] = new()
                     {
-                        Schema = new()
+                        Schema = new OpenApiSchema
                         {
                             Type = "object",
                             Properties = new Dictionary<string, OpenApiSchema>

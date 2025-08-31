@@ -19,7 +19,7 @@ public class CreateUserProfileRequestExample : IExamplesProvider<CreateUserProfi
 {
     public CreateUserProfileRequest GetExamples()
     {
-        return new()
+        return new CreateUserProfileRequest
         {
             DisplayName = "Ion Popescu",
             PhotoUrl = "https://storage.civica.ro/avatars/user-123.jpg",
@@ -38,7 +38,7 @@ public class UserProfileResponseExample : IExamplesProvider<UserProfileResponse>
 {
     public UserProfileResponse GetExamples()
     {
-        return new()
+        return new UserProfileResponse
         {
             Id = Guid.NewGuid(),
             Email = "ion.popescu@example.com",
@@ -72,7 +72,7 @@ public class CreateIssueRequestExample : IExamplesProvider<CreateIssueRequest>
 {
     public CreateIssueRequest GetExamples()
     {
-        return new()
+        return new CreateIssueRequest
         {
             Title = "Groapă periculoasă pe strada Mihai Eminescu",
             Description = "O groapă adâncă de aproximativ 50cm s-a format în asfalt, reprezentând un pericol pentru vehicule și pietoni.",
@@ -101,7 +101,7 @@ public class IssueListResponseExample : IExamplesProvider<IssueListResponse>
 {
     public IssueListResponse GetExamples()
     {
-        return new()
+        return new IssueListResponse
         {
             Id = Guid.NewGuid(),
             Title = "Groapă periculoasă pe strada Mihai Eminescu",
@@ -127,7 +127,7 @@ public class PagedIssueListResponseExample : IExamplesProvider<PagedResult<Issue
     {
         IssueListResponse issueExample = new IssueListResponseExample().GetExamples();
 
-        return new()
+        return new PagedResult<IssueListResponse>
         {
             Items = [issueExample],
             Page = 1,
@@ -144,7 +144,7 @@ public class AdminIssueResponseExample : IExamplesProvider<AdminIssueResponse>
 {
     public AdminIssueResponse GetExamples()
     {
-        return new()
+        return new AdminIssueResponse
         {
             Id = Guid.NewGuid(),
             Title = "Iluminat stradal defect",
@@ -197,7 +197,7 @@ public class ApproveIssueRequestExample : IExamplesProvider<ApproveIssueRequest>
 {
     public ApproveIssueRequest GetExamples()
     {
-        return new()
+        return new ApproveIssueRequest
         {
             AdminNotes = "Issue verified and approved for public visibility. High priority due to safety concerns."
         };
@@ -211,7 +211,7 @@ public class RejectIssueRequestExample : IExamplesProvider<RejectIssueRequest>
 {
     public RejectIssueRequest GetExamples()
     {
-        return new()
+        return new RejectIssueRequest
         {
             Reason = "Duplicate of existing issue #123. Please support the existing campaign instead."
         };
@@ -225,7 +225,7 @@ public class UserGamificationResponseExample : IExamplesProvider<UserGamificatio
 {
     public UserGamificationResponse GetExamples()
     {
-        return new()
+        return new UserGamificationResponse
         {
             Points = 350,
             Level = 3,
@@ -293,14 +293,14 @@ public class LeaderboardResponseExample : IExamplesProvider<LeaderboardResponse>
 {
     public LeaderboardResponse GetExamples()
     {
-        return new()
+        return new LeaderboardResponse
         {
             Leaderboard =
             [
                 new LeaderboardEntry
                 {
                     Rank = 1,
-                    User = new()
+                    User = new UserInfo
                     {
                         Id = Guid.NewGuid(),
                         DisplayName = "Ana Popa",
@@ -317,7 +317,7 @@ public class LeaderboardResponseExample : IExamplesProvider<LeaderboardResponse>
                 new LeaderboardEntry
                 {
                     Rank = 2,
-                    User = new()
+                    User = new UserInfo
                     {
                         Id = Guid.NewGuid(),
                         DisplayName = "Mihai Ionescu",
@@ -334,7 +334,7 @@ public class LeaderboardResponseExample : IExamplesProvider<LeaderboardResponse>
                 new LeaderboardEntry
                 {
                     Rank = 3,
-                    User = new()
+                    User = new UserInfo
                     {
                         Id = Guid.NewGuid(),
                         DisplayName = "Elena Dumitrescu",
@@ -363,7 +363,7 @@ public class AdminStatisticsResponseExample : IExamplesProvider<AdminStatisticsR
 {
     public AdminStatisticsResponse GetExamples()
     {
-        return new()
+        return new AdminStatisticsResponse
         {
             // Issue statistics
             TotalSubmissions = 156,
@@ -385,7 +385,7 @@ public class AdminStatisticsResponseExample : IExamplesProvider<AdminStatisticsR
             AverageReviewTimeHours = 4.5,
 
             // Category breakdown
-            IssuesByCategory = new()
+            IssuesByCategory = new Dictionary<string, int>
             {
                 ["Infrastructure"] = 45,
                 ["StreetLighting"] = 32,
@@ -393,14 +393,14 @@ public class AdminStatisticsResponseExample : IExamplesProvider<AdminStatisticsR
                 ["PublicTransport"] = 25,
                 ["WasteManagement"] = 26
             },
-            IssuesByUrgency = new()
+            IssuesByUrgency = new Dictionary<string, int>
             {
                 ["Low"] = 28,
                 ["Medium"] = 65,
                 ["High"] = 42,
                 ["Urgent"] = 21
             },
-            IssuesByPriority = new()
+            IssuesByPriority = new Dictionary<string, int>
             {
                 ["Low"] = 35,
                 ["Normal"] = 78,
