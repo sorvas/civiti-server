@@ -248,7 +248,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CivicaPolicy", policy =>
     {
-        policy.WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:4200"])
+        // Get allowed origins from configuration or environment variable
+        var corsOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")?.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            ?? builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+            ?? ["http://localhost:4200"];
+
+        Log.Information("CORS configured with allowed origins: {Origins}", string.Join(", ", corsOrigins));
+
+        policy.WithOrigins(corsOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -279,7 +286,7 @@ builder.Services.AddHttpClient();
 
 WebApplication app = builder.Build();
 
-// Configure pipeline
+// Configure pipeline~~~
 // Enable Swagger in both Development and Production for Railway deployment
 app.UseSwagger();
 app.UseSwaggerUI(options =>
