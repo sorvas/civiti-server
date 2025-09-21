@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Options;
-using System.Text;
 using System.Text.RegularExpressions;
 using Serilog;
 using FluentValidation;
@@ -12,7 +11,6 @@ using Civica.Api.Services;
 using Civica.Api.Infrastructure.Middleware;
 using Civica.Api.Infrastructure.Constants;
 using Civica.Api.Infrastructure.Configuration;
-using Civica.Api.Infrastructure.Extensions;
 using Civica.Api.Endpoints;
 using Swashbuckle.AspNetCore.Filters;
 
@@ -59,6 +57,12 @@ if (!string.IsNullOrEmpty(connectionString))
             maskedConnectionString = connectionString.Replace(passwordPart, "Password=***");
         }
     }
+}
+
+// Log the masked connection string for debugging (without exposing password)
+if (!string.IsNullOrEmpty(maskedConnectionString))
+{
+    Log.Information("Database connection configured: {MaskedConnectionString}", maskedConnectionString);
 }
 
 // Convert Railway DATABASE_URL format to Npgsql connection string
@@ -142,10 +146,10 @@ if (string.IsNullOrWhiteSpace(supabaseAnonKey))
 }
 
 // Define security policy based on environment
-string environmentName = builder.Environment.EnvironmentName;
+var environmentName = builder.Environment.EnvironmentName;
 
 // Configure JWT validation options for JWKS support
-var jwtValidationOptions = new JwtValidationOptions
+JwtValidationOptions jwtValidationOptions = new JwtValidationOptions
 {
     JwksUrl = $"{supabaseUrl}/auth/v1/.well-known/jwks.json",
     ValidIssuer = $"{supabaseUrl}/auth/v1",
@@ -208,28 +212,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             RequireExpirationTime = true
         };
 
-        // Configure JWKS-based key resolution
-        options.TokenValidationParameters.IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
-        {
-            // This is called during token validation - we need to resolve keys synchronously
-            // We'll use the HttpContext to get our services if available
-            try
-            {
-                // Try to get HttpContext from the current request
-                var httpContextAccessor = options.Events?.GetType().Assembly
-                    .GetTypes()
-                    .FirstOrDefault(t => t.Name == "HttpContextAccessor");
-
-                // Fallback: return empty and rely on post-configuration
-                Log.Warning("JWKS key resolution called but HttpContext not available - kid: {Kid}", kid);
-                return Enumerable.Empty<SecurityKey>();
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error in JWKS key resolver for kid: {Kid}", kid);
-                return Enumerable.Empty<SecurityKey>();
-            }
-        };
+        // Note: IssuerSigningKeyResolver is configured via JwtBearerPostConfigureOptions
+        // This ensures proper dependency injection and synchronous cache access
 
         // Configure events for JWKS integration
         options.Events = new JwtBearerEvents
@@ -411,7 +395,7 @@ app.MapGet("/api/health", async (CivicaDbContext context, ISupabaseService supab
         try
         {
             // Test database connectivity with timeout
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             await context.Database.CanConnectAsync(cts.Token);
             health = health with { Database = "connected" };
         }
@@ -458,9 +442,9 @@ if (!skipMigration)
 
     const int maxRetries = 5;
     const int delayMs = 5000;
-    bool migrationSuccess = false;
+    var migrationSuccess = false;
 
-    for (int retry = 1; retry <= maxRetries; retry++)
+    for (var retry = 1; retry <= maxRetries; retry++)
     {
         try
         {
@@ -468,9 +452,8 @@ if (!skipMigration)
             CivicaDbContext context = scope.ServiceProvider.GetRequiredService<CivicaDbContext>();
 
             // Test connection first with shorter timeout
-            Log.Information($"Testing database connection (attempt {retry}/{maxRetries})...");
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            bool canConnect = await context.Database.CanConnectAsync(cts.Token);
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var canConnect = await context.Database.CanConnectAsync(cts.Token);
 
             if (!canConnect)
             {
@@ -504,11 +487,9 @@ if (!skipMigration)
                 await Task.Delay(delayMs * retry);
                 continue; // Explicitly continue to next retry
             }
-            else
-            {
-                Log.Error("Database connection timed out after all retries");
-                break; // Exit the retry loop
-            }
+
+            Log.Error("Database connection timed out after all retries");
+            break; // Exit the retry loop
         }
         catch (Exception ex)
         {
@@ -518,7 +499,6 @@ if (!skipMigration)
             {
                 Log.Information($"Waiting {delayMs * retry}ms before retry...");
                 await Task.Delay(delayMs * retry); // Exponential backoff
-                continue; // Explicitly continue to next retry
             }
             else
             {
@@ -545,10 +525,10 @@ else
 // This ensures keys are available for the synchronous IssuerSigningKeyResolver
 try
 {
-    var jwksManager = app.Services.GetRequiredService<IJwksManager>();
+    IJwksManager jwksManager = app.Services.GetRequiredService<IJwksManager>();
     Log.Information("Pre-populating JWKS cache before application start");
 
-    var jwks = await jwksManager.GetJwksAsync();
+    JsonWebKeySet jwks = await jwksManager.GetJwksAsync();
     Log.Information("JWKS cache populated successfully with {KeyCount} keys", jwks.Keys.Count);
 
     // Log available key IDs for debugging
