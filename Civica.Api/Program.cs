@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.RegularExpressions;
 using Serilog;
@@ -11,8 +12,8 @@ using Civica.Api.Services;
 using Civica.Api.Infrastructure.Middleware;
 using Civica.Api.Infrastructure.Constants;
 using Civica.Api.Infrastructure.Configuration;
+using Civica.Api.Infrastructure.Extensions;
 using Civica.Api.Endpoints;
-using Microsoft.IdentityModel.Protocols;
 using Swashbuckle.AspNetCore.Filters;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -103,7 +104,7 @@ builder.Services.AddDbContext<CivicaDbContext>(options =>
         .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
         .EnableDetailedErrors(builder.Environment.IsDevelopment()));
 
-// Authentication with Supabase JWT
+// Authentication with Supabase JWT and JWKS
 var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
 if (string.IsNullOrWhiteSpace(supabaseUrl))
 {
@@ -116,7 +117,7 @@ if (string.IsNullOrWhiteSpace(supabaseAnonKey))
     supabaseAnonKey = builder.Configuration["Supabase:AnonKey"];
 }
 
-// Get JWT secret for token validation (different from anon key)
+// Get JWT secret for legacy fallback validation (optional with JWKS)
 var jwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
 if (string.IsNullOrWhiteSpace(jwtSecret))
 {
@@ -143,8 +144,33 @@ if (string.IsNullOrWhiteSpace(supabaseAnonKey))
 // Define security policy based on environment
 string environmentName = builder.Environment.EnvironmentName;
 
-// For Supabase with JWT Keys, the JWT secret is now optional
-// Supabase provides a JWKS endpoint for automatic key discovery
+// Configure JWT validation options for JWKS support
+var jwtValidationOptions = new JwtValidationOptions
+{
+    JwksUrl = $"{supabaseUrl}/auth/v1/.well-known/jwks.json",
+    ValidIssuer = $"{supabaseUrl}/auth/v1",
+    ValidAudience = "authenticated",
+    JwksCacheTtlMs = 60 * 60 * 1000, // 1 hour cache
+    ClockSkew = TimeSpan.Zero,
+    RequireHttpsMetadata = !builder.Environment.IsDevelopment(),
+    LegacyJwtSecret = jwtSecret,
+    EnableLegacyFallback = !string.IsNullOrWhiteSpace(jwtSecret)
+};
+
+// Register JWT validation options
+builder.Services.Configure<JwtValidationOptions>(options =>
+{
+    options.JwksUrl = jwtValidationOptions.JwksUrl;
+    options.ValidIssuer = jwtValidationOptions.ValidIssuer;
+    options.ValidAudience = jwtValidationOptions.ValidAudience;
+    options.JwksCacheTtlMs = jwtValidationOptions.JwksCacheTtlMs;
+    options.ClockSkew = jwtValidationOptions.ClockSkew;
+    options.RequireHttpsMetadata = jwtValidationOptions.RequireHttpsMetadata;
+    options.LegacyJwtSecret = jwtValidationOptions.LegacyJwtSecret;
+    options.EnableLegacyFallback = jwtValidationOptions.EnableLegacyFallback;
+});
+
+// For Supabase with JWT Keys, JWKS is the primary method
 // The legacy JWT secret can still be provided for backward compatibility
 if (!string.IsNullOrWhiteSpace(jwtSecret))
 {
@@ -152,75 +178,87 @@ if (!string.IsNullOrWhiteSpace(jwtSecret))
 }
 else
 {
-    Log.Information("No JWT secret provided - will use Supabase JWKS endpoint for key discovery. " +
-                    "This is the recommended approach for JWT Keys support.");
+    Log.Information("Using Supabase JWKS endpoint for key discovery: {JwksUrl}", jwtValidationOptions.JwksUrl);
 }
 
+// Register JWKS Manager service and dependencies
+builder.Services.AddSingleton<IJwksManager, JwksManager>();
+builder.Services.AddMemoryCache();
+builder.Services.AddHostedService<JwksBackgroundService>();
+
+// Add JWT Bearer authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        // Supabase JWTs can have different issuers depending on version
-        // Check actual token with decode-jwt.html to verify
-        var issuer = $"{supabaseUrl}/auth/v1";
-
-        // For debugging - log the expected issuer
-        Log.Information("Configuring JWT validation with issuer: {Issuer}", issuer);
-
-        // Configure JWT validation to use Supabase's JWKS endpoint
-        // This supports JWT Keys with automatic key rotation
-        var jwksUri = $"{supabaseUrl}/auth/v1/.well-known/jwks.json";
-
-        // Configure the handler to fetch keys from JWKS
-        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+        // Basic JWT Bearer configuration
+        options.RequireHttpsMetadata = jwtValidationOptions.RequireHttpsMetadata;
         options.SaveToken = true;
-
-        // Use custom configuration retriever for JWKS without full OIDC
-        var configurationManager = new Microsoft.IdentityModel.Protocols.ConfigurationManager<Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectConfiguration>(
-            jwksUri,
-            new JwksRetriever(),
-            new Microsoft.IdentityModel.Protocols.HttpDocumentRetriever());
-
-        options.ConfigurationManager = configurationManager;
 
         // Token validation parameters
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuerSigningKey = true, // Will use keys from JWKS
             ValidateIssuer = true,
+            ValidIssuer = jwtValidationOptions.ValidIssuer,
             ValidateAudience = true,
+            ValidAudience = jwtValidationOptions.ValidAudience,
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero,
-            ValidIssuer = issuer,
-            ValidAudience = "authenticated"
-            // Remove IssuerSigningKeyResolver - let the middleware handle it automatically
-            // The ConfigurationManager will provide keys internally without deadlock
+            ClockSkew = jwtValidationOptions.ClockSkew,
+            ValidateIssuerSigningKey = true,
+            RequireSignedTokens = true,
+            RequireExpirationTime = true
         };
 
-        Log.Information("JWT validation configured with JWKS endpoint: {JwksUri}", jwksUri);
-        Log.Information("This supports automatic key rotation and both HS256 and ECC keys");
+        // Configure JWKS-based key resolution
+        options.TokenValidationParameters.IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) =>
+        {
+            // This is called during token validation - we need to resolve keys synchronously
+            // We'll use the HttpContext to get our services if available
+            try
+            {
+                // Try to get HttpContext from the current request
+                var httpContextAccessor = options.Events?.GetType().Assembly
+                    .GetTypes()
+                    .FirstOrDefault(t => t.Name == "HttpContextAccessor");
 
-        // Log JWT validation events for debugging
+                // Fallback: return empty and rely on post-configuration
+                Log.Warning("JWKS key resolution called but HttpContext not available - kid: {Kid}", kid);
+                return Enumerable.Empty<SecurityKey>();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error in JWKS key resolver for kid: {Kid}", kid);
+                return Enumerable.Empty<SecurityKey>();
+            }
+        };
+
+        // Configure events for JWKS integration
         options.Events = new JwtBearerEvents
         {
-            OnAuthenticationFailed = context =>
-            {
-                Log.Error("Authentication failed: {Error}", context.Exception?.Message);
-                return Task.CompletedTask;
-            },
             OnTokenValidated = context =>
             {
-                Log.Information("Token validated for user: {UserId}",
-                    context.Principal?.FindFirst("sub")?.Value);
+                var userId = context.Principal?.FindFirst("sub")?.Value;
+                Log.Information("JWT token validated successfully - UserId: {UserId}", userId);
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                Log.Warning("JWT authentication failed: {Error}", context.Exception?.Message);
                 return Task.CompletedTask;
             },
             OnChallenge = context =>
             {
-                Log.Warning("JWT Challenge: {Error} - {ErrorDescription}",
+                Log.Warning("JWT authentication challenge: {Error} - {ErrorDescription}",
                     context.Error, context.ErrorDescription);
                 return Task.CompletedTask;
             }
         };
+
+        Log.Information("JWT Bearer authentication configured - Issuer: {Issuer}, JWKS: {JwksUrl}",
+            jwtValidationOptions.ValidIssuer, jwtValidationOptions.JwksUrl);
     });
+
+// Configure JWT Bearer options with proper dependency injection
+builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, Civica.Api.Infrastructure.Configuration.JwtBearerPostConfigureOptions>();
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AuthorizationPolicies.AdminOnly, policy =>
@@ -337,6 +375,7 @@ app.MapUserEndpoints();
 app.MapIssueEndpoints();
 app.MapAdminEndpoints();
 app.MapGamificationEndpoints();
+app.MapJwksEndpoints(); // JWKS management and monitoring endpoints
 app.MapDevAuthEndpoints(); // Development-only endpoints for testing
 
 // Root endpoint redirects to Swagger UI
@@ -500,6 +539,26 @@ if (!skipMigration)
 else
 {
     Log.Information("Skipping database migration due to SKIP_DB_MIGRATION=true");
+}
+
+// Pre-populate JWKS cache before starting the application
+// This ensures keys are available for the synchronous IssuerSigningKeyResolver
+try
+{
+    var jwksManager = app.Services.GetRequiredService<IJwksManager>();
+    Log.Information("Pre-populating JWKS cache before application start");
+
+    var jwks = await jwksManager.GetJwksAsync();
+    Log.Information("JWKS cache populated successfully with {KeyCount} keys", jwks.Keys.Count);
+
+    // Log available key IDs for debugging
+    var kids = string.Join(", ", jwks.Keys.Select(k => k.Kid ?? "null"));
+    Log.Debug("Available key IDs: {Kids}", kids);
+}
+catch (Exception ex)
+{
+    Log.Error(ex, "Failed to pre-populate JWKS cache - JWT validation may fail initially");
+    // Continue running - the background service will keep trying
 }
 
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
