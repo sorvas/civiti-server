@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Options;
 using System.Text.RegularExpressions;
@@ -315,6 +316,18 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddHttpClient();
 
 WebApplication app = builder.Build();
+
+// Configure forwarded headers for reverse proxy (Railway, etc.)
+// This must be first in the pipeline to correctly set RemoteIpAddress
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    ForwardLimit = 1 // Only trust the first proxy hop to prevent spoofing
+};
+// Clear default known networks/proxies to allow any proxy (needed for cloud deployments)
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 // Configure pipeline~~~
 // Enable Swagger in both Development and Production for Railway deployment

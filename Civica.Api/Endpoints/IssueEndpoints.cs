@@ -133,13 +133,8 @@ public static class IssueEndpoints
             HttpContext httpContext) =>
         {
             // Get client IP for rate limiting
+            // Note: ForwardedHeaders middleware handles X-Forwarded-For, so RemoteIpAddress is already correct
             string? clientIp = httpContext.Connection.RemoteIpAddress?.ToString();
-
-            // Check for forwarded IP (when behind a proxy/load balancer)
-            if (httpContext.Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
-            {
-                clientIp = forwardedFor.ToString().Split(',').FirstOrDefault()?.Trim() ?? clientIp;
-            }
 
             try
             {
