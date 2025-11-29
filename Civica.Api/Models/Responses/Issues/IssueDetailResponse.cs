@@ -15,7 +15,6 @@ public class IssueDetailResponse
     public string? District { get; set; }
     public string? Landmark { get; set; }
     public UrgencyLevel Urgency { get; set; }
-    public string? AuthorityEmail { get; set; }
     public int? EstimatedImpact { get; set; }
     public List<string>? Tags { get; set; }
     public IssueStatus Status { get; set; }

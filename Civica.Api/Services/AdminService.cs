@@ -125,7 +125,8 @@ public class AdminService(
                 .Include(i => i.Photos)
                 .Include(i => i.AdminActions)
                     .ThenInclude(aa => aa.AdminUser)
-                .Include(i => i.EmailTrackings)
+                .Include(i => i.IssueAuthorities)
+                    .ThenInclude(ia => ia.Authority)
                 .FirstOrDefaultAsync(i => i.Id == issueId);
 
             if (issue == null)
@@ -135,10 +136,6 @@ public class AdminService(
 
             var userResolvedIssues = await context.Issues
                 .CountAsync(i => i.UserId == issue.UserId && i.Status == IssueStatus.Resolved);
-
-            DateTime? lastEmailSent = issue.EmailTrackings
-                .OrderByDescending(et => et.SentAt)
-                .FirstOrDefault()?.SentAt;
 
             return new AdminIssueDetailResponse
             {
@@ -156,7 +153,6 @@ public class AdminService(
                 Neighborhood = issue.Neighborhood,
                 District = issue.District,
                 Landmark = issue.Landmark,
-                AuthorityEmail = issue.AuthorityEmail,
                 EstimatedImpact = issue.EstimatedImpact,
                 Tags = issue.Tags?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
                 CurrentSituation = issue.CurrentSituation,
@@ -207,8 +203,7 @@ public class AdminService(
                     EstimatedResolutionTime = aa.EstimatedResolutionTime,
                     CreatedAt = aa.CreatedAt
                 }).ToList(),
-                EmailsSent = issue.EmailsSent,
-                LastEmailSentAt = lastEmailSent
+                EmailsSent = issue.EmailsSent
             };
         }
         catch (Exception ex)
@@ -582,7 +577,7 @@ public class AdminService(
                 .Distinct()
                 .CountAsync();
 
-            var totalEmailsSent = await context.EmailTrackings.CountAsync();
+            var totalEmailsSent = await context.Issues.SumAsync(i => i.EmailsSent);
 
             // Performance metrics
             var totalIssues = periodIssues.Count;

@@ -20,7 +20,6 @@ public class AdminIssueDetailResponse
     public string? Neighborhood { get; set; }
     public string? District { get; set; }
     public string? Landmark { get; set; }
-    public string? AuthorityEmail { get; set; }
     public int? EstimatedImpact { get; set; }
     public List<string>? Tags { get; set; }
     
@@ -62,7 +61,6 @@ public class AdminIssueDetailResponse
     public List<AdminIssuePhotoResponse> Photos { get; set; } = [];
     public List<AdminActionResponse> AdminActions { get; set; } = [];
     public int EmailsSent { get; set; }
-    public DateTime? LastEmailSentAt { get; set; }
 }
 
 public class AdminIssuePhotoResponse

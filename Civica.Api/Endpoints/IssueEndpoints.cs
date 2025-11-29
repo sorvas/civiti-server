@@ -126,27 +126,39 @@ public static class IssueEndpoints
         .Produces(429)
         .WithOpenApi();
 
-        // PUT /api/issues/{id}/email-sent
-        group.MapPut("/{id:guid}/email-sent", [Authorize] async Task<Results<Ok, BadRequest<string>, NotFound, UnauthorizedHttpResult>> (
+        // POST /api/issues/{id}/email-sent
+        group.MapPost("/{id:guid}/email-sent", async Task<Results<Ok, BadRequest<string>, NotFound, StatusCodeHttpResult>> (
             IIssueService issueService,
             Guid id,
-            TrackEmailRequest request,
             HttpContext httpContext) =>
         {
-            var supabaseUserId = httpContext.User.GetSupabaseUserId();
-            
-            if (string.IsNullOrEmpty(supabaseUserId))
+            // Get client IP for rate limiting
+            string? clientIp = httpContext.Connection.RemoteIpAddress?.ToString();
+
+            // Check for forwarded IP (when behind a proxy/load balancer)
+            if (httpContext.Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
             {
-                return TypedResults.Unauthorized();
+                clientIp = forwardedFor.ToString().Split(',').FirstOrDefault()?.Trim() ?? clientIp;
             }
 
             try
             {
-                var success = await issueService.TrackEmailSentAsync(id, request, supabaseUserId);
-                
+                var (success, error) = await issueService.IncrementEmailCountAsync(id, clientIp);
+
                 if (!success)
                 {
-                    return TypedResults.NotFound();
+                    if (error == "Issue not found")
+                    {
+                        return TypedResults.NotFound();
+                    }
+
+                    if (error?.Contains("wait") == true)
+                    {
+                        // Rate limited - return 429 Too Many Requests
+                        return TypedResults.StatusCode(429);
+                    }
+
+                    return TypedResults.BadRequest(error);
                 }
 
                 return TypedResults.Ok();
@@ -156,13 +168,13 @@ public static class IssueEndpoints
                 return TypedResults.BadRequest(ex.Message);
             }
         })
-        .WithName("TrackEmailSent")
-        .WithSummary("Track that a user sent an email about an issue")
-        .WithDescription("Records that the authenticated user has sent an email to authorities about this issue. This increments the email counter for the issue and awards gamification points to the user. Each user can only track one email per issue to prevent manipulation.")
+        .WithName("ConfirmEmailSent")
+        .WithSummary("Confirm that an email was sent about an issue")
+        .WithDescription("Increments the email counter for this issue. This is a public endpoint (no authentication required) with rate limiting - each IP can only confirm once per issue per hour to prevent abuse.")
         .Produces(200)
         .Produces(400)
         .Produces(404)
-        .Produces(401)
+        .Produces(429)
         .WithOpenApi();
     }
 }

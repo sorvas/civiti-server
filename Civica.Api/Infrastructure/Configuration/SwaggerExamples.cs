@@ -87,7 +87,11 @@ public class CreateIssueRequestExample : IExamplesProvider<CreateIssueRequest>
                 "https://storage.civica.ro/photos/issue-123-photo1.jpg",
                 "https://storage.civica.ro/photos/issue-123-photo2.jpg"
             ],
-            AuthorityEmail = "primarie.sector2@pmb.ro",
+            Authorities =
+            [
+                new IssueAuthorityInput { AuthorityId = Guid.NewGuid() },
+                new IssueAuthorityInput { CustomName = "Primăria Sector 2", CustomEmail = "primarie.sector2@pmb.ro" }
+            ],
             EstimatedImpact = 500,
             Tags = ["infrastructură", "siguranță", "urgent"]
         };
