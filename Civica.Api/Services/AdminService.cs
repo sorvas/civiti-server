@@ -77,27 +77,15 @@ public class AdminService(
                 {
                     Id = i.Id,
                     Title = i.Title,
-                    Description = i.Description,
                     Category = i.Category,
                     Urgency = i.Urgency,
                     Priority = i.Priority,
                     Status = i.Status,
                     Address = i.Address,
-                    Neighborhood = i.Neighborhood,
                     CreatedAt = i.CreatedAt,
-                    UpdatedAt = i.UpdatedAt,
                     PhotoCount = i.Photos.Count,
                     EmailsSent = i.EmailsSent,
-                    UserId = i.UserId,
-                    UserName = i.User.DisplayName,
-                    UserEmail = i.User.Email,
-                    UserTotalIssues = context.Issues.Count(issue => issue.UserId == i.UserId),
-                    ReviewedAt = i.ReviewedAt,
-                    ReviewedBy = i.ReviewedBy,
-                    RejectionReason = i.RejectionReason,
-                    AIGeneratedDescription = i.AIGeneratedDescription,
-                    AIProposedSolution = i.AIProposedSolution,
-                    AIConfidence = i.AIConfidence
+                    UserName = i.User.DisplayName
                 })
                 .ToListAsync();
 
