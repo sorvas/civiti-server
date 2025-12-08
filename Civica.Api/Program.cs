@@ -131,13 +131,6 @@ if (string.IsNullOrWhiteSpace(supabaseAnonKey))
     supabaseAnonKey = builder.Configuration["Supabase:AnonKey"];
 }
 
-// Get JWT secret for legacy fallback validation (optional with JWKS)
-var jwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
-if (string.IsNullOrWhiteSpace(jwtSecret))
-{
-    jwtSecret = builder.Configuration["Supabase:JwtSecret"];
-}
-
 // Validate Supabase configuration early
 if (string.IsNullOrWhiteSpace(supabaseUrl))
 {
@@ -166,9 +159,7 @@ JwtValidationOptions jwtValidationOptions = new JwtValidationOptions
     ValidAudience = "authenticated",
     JwksCacheTtlMs = 60 * 60 * 1000, // 1 hour cache
     ClockSkew = TimeSpan.Zero,
-    RequireHttpsMetadata = !builder.Environment.IsDevelopment(),
-    LegacyJwtSecret = jwtSecret,
-    EnableLegacyFallback = !string.IsNullOrWhiteSpace(jwtSecret)
+    RequireHttpsMetadata = !builder.Environment.IsDevelopment()
 };
 
 // Register JWT validation options
@@ -180,20 +171,9 @@ builder.Services.Configure<JwtValidationOptions>(options =>
     options.JwksCacheTtlMs = jwtValidationOptions.JwksCacheTtlMs;
     options.ClockSkew = jwtValidationOptions.ClockSkew;
     options.RequireHttpsMetadata = jwtValidationOptions.RequireHttpsMetadata;
-    options.LegacyJwtSecret = jwtValidationOptions.LegacyJwtSecret;
-    options.EnableLegacyFallback = jwtValidationOptions.EnableLegacyFallback;
 });
 
-// For Supabase with JWT Keys, JWKS is the primary method
-// The legacy JWT secret can still be provided for backward compatibility
-if (!string.IsNullOrWhiteSpace(jwtSecret))
-{
-    Log.Information("Legacy JWT secret provided - will be used as fallback for {Environment}", environmentName);
-}
-else
-{
-    Log.Information("Using Supabase JWKS endpoint for key discovery: {JwksUrl}", jwtValidationOptions.JwksUrl);
-}
+Log.Information("Using Supabase JWKS endpoint for key discovery: {JwksUrl}", jwtValidationOptions.JwksUrl);
 
 // Register JWKS Manager service and dependencies
 builder.Services.AddSingleton<IJwksManager, JwksManager>();

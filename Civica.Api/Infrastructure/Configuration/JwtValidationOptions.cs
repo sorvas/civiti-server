@@ -63,16 +63,4 @@ public class JwtValidationOptions
     /// Default: 30 seconds
     /// </summary>
     public int HttpTimeoutSeconds { get; set; } = 30;
-
-    /// <summary>
-    /// Legacy JWT secret for fallback validation
-    /// When provided, will be used as fallback if JWKS validation fails
-    /// </summary>
-    public string? LegacyJwtSecret { get; set; }
-
-    /// <summary>
-    /// Whether to enable legacy JWT secret fallback
-    /// Default: true for backward compatibility
-    /// </summary>
-    public bool EnableLegacyFallback { get; set; } = true;
 }
