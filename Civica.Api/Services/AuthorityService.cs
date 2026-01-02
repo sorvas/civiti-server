@@ -27,15 +27,19 @@ public class AuthorityService(
                 query = query.Where(a => a.Name.ToLower().Contains(searchLower));
             }
 
-            // City filter (typically from issue creation step 1)
+            // City filter (case-insensitive, typically from issue creation step 1)
             if (!string.IsNullOrWhiteSpace(city))
             {
-                query = query.Where(a => a.City == city);
+                string cityLower = city.ToLower();
+                query = query.Where(a => a.City.ToLower() == cityLower);
 
-                // District filter: include both specific district AND city-wide
+                // District filter: include both specific district AND city-wide (case-insensitive)
                 if (!string.IsNullOrWhiteSpace(district))
                 {
-                    query = query.Where(a => a.District == district || a.District == null);
+                    string districtLower = district.ToLower();
+                    query = query.Where(a =>
+                        (a.District != null && a.District.ToLower() == districtLower) ||
+                        a.District == null);
                 }
             }
 
