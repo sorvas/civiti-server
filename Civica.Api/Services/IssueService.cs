@@ -185,10 +185,14 @@ public class IssueService(
 
     public async Task<CreateIssueResponse> CreateIssueAsync(CreateIssueRequest request, string supabaseUserId)
     {
-        using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync();
-        
-        try
+        var strategy = context.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
         {
+            using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync();
+
+            try
+            {
             // Get user profile
             UserProfile? userProfile = await context.UserProfiles
                 .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
@@ -341,12 +345,13 @@ public class IssueService(
                 CreatedAt = issue.CreatedAt
             };
         }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync();
-            logger.LogError(ex, "Error creating issue for user {SupabaseUserId}", supabaseUserId);
-            throw;
-        }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                logger.LogError(ex, "Error creating issue for user {SupabaseUserId}", supabaseUserId);
+                throw;
+            }
+        });
     }
 
     public async Task<(bool Success, string? Error)> IncrementEmailCountAsync(Guid issueId, string? clientIp)
