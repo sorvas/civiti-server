@@ -347,6 +347,7 @@ public class AdminStatisticsResponseExample : IExamplesProvider<AdminStatisticsR
             Rejected = 24,
             Active = 45,
             Resolved = 38,
+            Cancelled = 8,
 
             // Time-based statistics
             SubmissionsToday = 3,

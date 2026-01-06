@@ -9,6 +9,7 @@ public class AdminStatisticsResponse
     public int Rejected { get; set; }
     public int Active { get; set; }
     public int Resolved { get; set; }
+    public int Cancelled { get; set; }
     
     // Time-based statistics
     public int SubmissionsToday { get; set; }

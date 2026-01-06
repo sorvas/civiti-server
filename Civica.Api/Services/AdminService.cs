@@ -599,6 +599,7 @@ public class AdminService(
                 Rejected = rejectedCount,
                 Active = statusCounts.GetValueOrDefault(IssueStatus.Active, 0),
                 Resolved = resolvedCount,
+                Cancelled = statusCounts.GetValueOrDefault(IssueStatus.Cancelled, 0),
                 SubmissionsToday = submissionsToday,
                 SubmissionsThisWeek = submissionsThisWeek,
                 SubmissionsThisMonth = submissionsThisMonth,

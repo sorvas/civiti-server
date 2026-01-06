@@ -641,6 +641,9 @@ public class IssueService(
                     return (false, null, $"Cannot edit an issue with status '{issue.Status}'.");
                 }
 
+                // Track if related entities were modified (photos/authorities)
+                bool hasRelatedChanges = false;
+
                 // Update only provided fields
                 if (request.Title != null)
                     issue.Title = request.Title;
@@ -702,10 +705,8 @@ public class IssueService(
                 // Handle photo updates (replace all if provided)
                 if (request.PhotoUrls != null)
                 {
-                    // Remove existing photos
                     context.IssuePhotos.RemoveRange(issue.Photos);
 
-                    // Add new photos
                     if (request.PhotoUrls.Any())
                     {
                         List<IssuePhoto> photos = request.PhotoUrls.Select((url, index) => new IssuePhoto
@@ -719,6 +720,7 @@ public class IssueService(
 
                         context.IssuePhotos.AddRange(photos);
                     }
+                    hasRelatedChanges = true;
                 }
 
                 // Handle authority updates (replace all if provided)
@@ -799,6 +801,17 @@ public class IssueService(
                             context.IssueAuthorities.Add(issueAuthority);
                         }
                     }
+                    hasRelatedChanges = true;
+                }
+
+                // Use EF Core change tracker to detect if the issue entity was modified
+                bool hasEntityChanges = context.Entry(issue).State == EntityState.Modified;
+
+                // Only proceed if there were actual changes
+                if (!hasEntityChanges && !hasRelatedChanges)
+                {
+                    await transaction.RollbackAsync();
+                    return (false, null, "No changes provided");
                 }
 
                 // Set status to UnderReview for admin re-approval
@@ -806,49 +819,46 @@ public class IssueService(
                 issue.UpdatedAt = DateTime.UtcNow;
 
                 await context.SaveChangesAsync();
-                await transaction.CommitAsync();
 
-                logger.LogInformation("Issue {IssueId} updated and set to UnderReview by user {UserId}", issueId, userProfile.Id);
+                // Reload the issue with all relations BEFORE committing
+                // This ensures we can rollback if the reload fails
+                await context.Entry(issue).Reference(i => i.User).LoadAsync();
+                await context.Entry(issue).Collection(i => i.Photos).LoadAsync();
+                await context.Entry(issue).Collection(i => i.IssueAuthorities).LoadAsync();
 
-                // Fetch the updated issue with all relations for the response
-                Issue? updatedIssue = await context.Issues
-                    .Include(i => i.Photos)
-                    .Include(i => i.User)
-                    .Include(i => i.IssueAuthorities)
-                        .ThenInclude(ia => ia.Authority)
-                    .FirstOrDefaultAsync(i => i.Id == issueId);
-
-                if (updatedIssue == null)
+                // Load Authority for each IssueAuthority
+                foreach (var ia in issue.IssueAuthorities.Where(ia => ia.AuthorityId.HasValue))
                 {
-                    return (false, null, "Issue not found after update");
+                    await context.Entry(ia).Reference(x => x.Authority).LoadAsync();
                 }
 
+                // Build response before committing
                 var response = new IssueDetailResponse
                 {
-                    Id = updatedIssue.Id,
-                    Title = updatedIssue.Title,
-                    Description = updatedIssue.Description,
-                    Category = updatedIssue.Category,
-                    Address = updatedIssue.Address,
-                    Latitude = updatedIssue.Latitude,
-                    Longitude = updatedIssue.Longitude,
-                    Neighborhood = updatedIssue.Neighborhood,
-                    District = updatedIssue.District,
-                    Landmark = updatedIssue.Landmark,
-                    Urgency = updatedIssue.Urgency,
-                    EstimatedImpact = updatedIssue.EstimatedImpact,
-                    Tags = updatedIssue.Tags?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
-                    Status = updatedIssue.Status,
-                    EmailsSent = updatedIssue.EmailsSent,
-                    CurrentSituation = updatedIssue.CurrentSituation,
-                    DesiredOutcome = updatedIssue.DesiredOutcome,
-                    CommunityImpact = updatedIssue.CommunityImpact,
-                    AIGeneratedDescription = updatedIssue.AIGeneratedDescription,
-                    AIProposedSolution = updatedIssue.AIProposedSolution,
-                    PublicVisibility = updatedIssue.PublicVisibility,
-                    CreatedAt = updatedIssue.CreatedAt,
-                    UpdatedAt = updatedIssue.UpdatedAt,
-                    Photos = updatedIssue.Photos.Select(p => new IssuePhotoResponse
+                    Id = issue.Id,
+                    Title = issue.Title,
+                    Description = issue.Description,
+                    Category = issue.Category,
+                    Address = issue.Address,
+                    Latitude = issue.Latitude,
+                    Longitude = issue.Longitude,
+                    Neighborhood = issue.Neighborhood,
+                    District = issue.District,
+                    Landmark = issue.Landmark,
+                    Urgency = issue.Urgency,
+                    EstimatedImpact = issue.EstimatedImpact,
+                    Tags = issue.Tags?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                    Status = issue.Status,
+                    EmailsSent = issue.EmailsSent,
+                    CurrentSituation = issue.CurrentSituation,
+                    DesiredOutcome = issue.DesiredOutcome,
+                    CommunityImpact = issue.CommunityImpact,
+                    AIGeneratedDescription = issue.AIGeneratedDescription,
+                    AIProposedSolution = issue.AIProposedSolution,
+                    PublicVisibility = issue.PublicVisibility,
+                    CreatedAt = issue.CreatedAt,
+                    UpdatedAt = issue.UpdatedAt,
+                    Photos = issue.Photos.Select(p => new IssuePhotoResponse
                     {
                         Id = p.Id,
                         Url = p.Url,
@@ -856,7 +866,7 @@ public class IssueService(
                         IsPrimary = p.IsPrimary,
                         CreatedAt = p.CreatedAt
                     }).ToList(),
-                    Authorities = updatedIssue.IssueAuthorities.Select(ia => new IssueAuthorityResponse
+                    Authorities = issue.IssueAuthorities.Select(ia => new IssueAuthorityResponse
                     {
                         AuthorityId = ia.AuthorityId,
                         Name = ia.Authority?.Name ?? ia.CustomName ?? string.Empty,
@@ -865,11 +875,16 @@ public class IssueService(
                     }).ToList(),
                     User = new UserBasicResponse
                     {
-                        Id = updatedIssue.User.Id,
-                        Name = updatedIssue.User.DisplayName,
-                        PhotoUrl = updatedIssue.User.PhotoUrl
+                        Id = issue.User.Id,
+                        Name = issue.User.DisplayName,
+                        PhotoUrl = issue.User.PhotoUrl
                     }
                 };
+
+                // Commit only after everything is ready
+                await transaction.CommitAsync();
+
+                logger.LogInformation("Issue {IssueId} updated and set to UnderReview by user {UserId}", issueId, userProfile.Id);
 
                 return (true, response, null);
             }
