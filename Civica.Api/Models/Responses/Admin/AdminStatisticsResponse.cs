@@ -7,7 +7,7 @@ public class AdminStatisticsResponse
     public int PendingReview { get; set; }
     public int Approved { get; set; }
     public int Rejected { get; set; }
-    public int InProgress { get; set; }
+    public int Active { get; set; }
     public int Resolved { get; set; }
     
     // Time-based statistics

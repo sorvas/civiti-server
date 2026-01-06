@@ -504,4 +504,381 @@ public class IssueService(
             throw;
         }
     }
+
+    public async Task<(bool Success, string? Error)> UpdateIssueStatusAsync(
+        Guid issueId,
+        UpdateIssueStatusRequest request,
+        string supabaseUserId,
+        bool isAdmin = false)
+    {
+        try
+        {
+            // Get user profile
+            UserProfile? userProfile = await context.UserProfiles
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+
+            if (userProfile == null)
+            {
+                return (false, "User profile not found");
+            }
+
+            // Get the issue
+            Issue? issue = await context.Issues
+                .FirstOrDefaultAsync(i => i.Id == issueId);
+
+            if (issue == null)
+            {
+                return (false, "Issue not found");
+            }
+
+            // Check ownership (admins can bypass)
+            if (!isAdmin && issue.UserId != userProfile.Id)
+            {
+                return (false, "You can only change status of your own issues");
+            }
+
+            // Validate the requested status transition
+            var validationError = ValidateStatusTransition(issue.Status, request.Status);
+            if (validationError != null)
+            {
+                return (false, validationError);
+            }
+
+            // Update the status
+            issue.Status = request.Status;
+            issue.UpdatedAt = DateTime.UtcNow;
+
+            await context.SaveChangesAsync();
+
+            logger.LogInformation("Issue {IssueId} status changed to {NewStatus} by user {UserId}",
+                issueId, request.Status, userProfile.Id);
+
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error updating status for issue {IssueId}", issueId);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Validates if a status transition is allowed for users.
+    /// Returns null if valid, or an error message if invalid.
+    /// </summary>
+    private static string? ValidateStatusTransition(IssueStatus currentStatus, IssueStatus newStatus)
+    {
+        // Users can only set these statuses
+        var allowedUserStatuses = new[] { IssueStatus.Cancelled, IssueStatus.Resolved };
+
+        if (!allowedUserStatuses.Contains(newStatus))
+        {
+            return $"Users can only set status to: {string.Join(", ", allowedUserStatuses)}";
+        }
+
+        // Check if already in the target status
+        if (currentStatus == newStatus)
+        {
+            return $"Issue is already {newStatus}";
+        }
+
+        // Cannot transition from terminal states
+        if (currentStatus == IssueStatus.Cancelled)
+        {
+            return "Cannot change status of a cancelled issue";
+        }
+
+        if (currentStatus == IssueStatus.Resolved && newStatus != IssueStatus.Resolved)
+        {
+            return "Cannot change status of a resolved issue";
+        }
+
+        return null; // Valid transition
+    }
+
+    public async Task<(bool Success, IssueDetailResponse? Issue, string? Error)> UpdateIssueAsync(
+        Guid issueId,
+        UpdateIssueRequest request,
+        string supabaseUserId)
+    {
+        var strategy = context.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync<(bool Success, IssueDetailResponse? Issue, string? Error)>(async () =>
+        {
+            using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync();
+
+            try
+            {
+                // Get user profile
+                UserProfile? userProfile = await context.UserProfiles
+                    .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+
+                if (userProfile == null)
+                {
+                    return (false, null, "User profile not found");
+                }
+
+                // Get the issue with related data
+                Issue? issue = await context.Issues
+                    .Include(i => i.Photos)
+                    .Include(i => i.IssueAuthorities)
+                    .FirstOrDefaultAsync(i => i.Id == issueId);
+
+                if (issue == null)
+                {
+                    return (false, null, "Issue not found");
+                }
+
+                // Check ownership
+                if (issue.UserId != userProfile.Id)
+                {
+                    return (false, null, "You can only edit your own issues");
+                }
+
+                // Check if the issue can be edited (not Cancelled or Resolved)
+                if (issue.Status == IssueStatus.Cancelled || issue.Status == IssueStatus.Resolved)
+                {
+                    return (false, null, $"Cannot edit an issue with status '{issue.Status}'.");
+                }
+
+                // Update only provided fields
+                if (request.Title != null)
+                    issue.Title = request.Title;
+
+                if (request.Description != null)
+                    issue.Description = request.Description;
+
+                if (request.Category.HasValue)
+                    issue.Category = request.Category.Value;
+
+                if (request.Address != null)
+                    issue.Address = request.Address;
+
+                if (request.District != null)
+                    issue.District = request.District;
+
+                if (request.Latitude.HasValue)
+                    issue.Latitude = request.Latitude.Value;
+
+                if (request.Longitude.HasValue)
+                    issue.Longitude = request.Longitude.Value;
+
+                if (request.LocationAccuracy.HasValue)
+                    issue.LocationAccuracy = request.LocationAccuracy.Value;
+
+                if (request.Neighborhood != null)
+                    issue.Neighborhood = request.Neighborhood;
+
+                if (request.Landmark != null)
+                    issue.Landmark = request.Landmark;
+
+                if (request.Urgency.HasValue)
+                    issue.Urgency = request.Urgency.Value;
+
+                if (request.EstimatedImpact.HasValue)
+                    issue.EstimatedImpact = request.EstimatedImpact.Value;
+
+                if (request.Tags != null)
+                    issue.Tags = request.Tags.Any() ? string.Join(",", request.Tags) : null;
+
+                if (request.CurrentSituation != null)
+                    issue.CurrentSituation = request.CurrentSituation;
+
+                if (request.DesiredOutcome != null)
+                    issue.DesiredOutcome = request.DesiredOutcome;
+
+                if (request.CommunityImpact != null)
+                    issue.CommunityImpact = request.CommunityImpact;
+
+                if (request.AIGeneratedDescription != null)
+                    issue.AIGeneratedDescription = request.AIGeneratedDescription;
+
+                if (request.AIProposedSolution != null)
+                    issue.AIProposedSolution = request.AIProposedSolution;
+
+                if (request.AIConfidence.HasValue)
+                    issue.AIConfidence = request.AIConfidence.Value;
+
+                // Handle photo updates (replace all if provided)
+                if (request.PhotoUrls != null)
+                {
+                    // Remove existing photos
+                    context.IssuePhotos.RemoveRange(issue.Photos);
+
+                    // Add new photos
+                    if (request.PhotoUrls.Any())
+                    {
+                        List<IssuePhoto> photos = request.PhotoUrls.Select((url, index) => new IssuePhoto
+                        {
+                            Id = Guid.NewGuid(),
+                            IssueId = issue.Id,
+                            Url = url,
+                            IsPrimary = index == 0,
+                            CreatedAt = DateTime.UtcNow
+                        }).ToList();
+
+                        context.IssuePhotos.AddRange(photos);
+                    }
+                }
+
+                // Handle authority updates (replace all if provided)
+                if (request.Authorities != null)
+                {
+                    // Remove existing authorities
+                    context.IssueAuthorities.RemoveRange(issue.IssueAuthorities);
+
+                    // Add new authorities
+                    if (request.Authorities.Any())
+                    {
+                        var authorities = request.Authorities.Where(a => a != null).ToList();
+
+                        // Check for duplicate AuthorityIds
+                        var predefinedIds = authorities
+                            .Where(a => a.AuthorityId.HasValue)
+                            .Select(a => a.AuthorityId!.Value)
+                            .ToList();
+
+                        if (predefinedIds.Count != predefinedIds.Distinct().Count())
+                        {
+                            await transaction.RollbackAsync();
+                            return (false, null, "Duplicate authority IDs are not allowed");
+                        }
+
+                        // Check for duplicate custom emails
+                        var customEmails = authorities
+                            .Where(a => !a.AuthorityId.HasValue && !string.IsNullOrWhiteSpace(a.CustomEmail))
+                            .Select(a => a.CustomEmail!.ToLowerInvariant())
+                            .ToList();
+
+                        if (customEmails.Count != customEmails.Distinct().Count())
+                        {
+                            await transaction.RollbackAsync();
+                            return (false, null, "Duplicate custom authority emails are not allowed");
+                        }
+
+                        foreach (var authorityInput in authorities)
+                        {
+                            bool hasPredefined = authorityInput.AuthorityId.HasValue;
+                            bool hasCustom = !string.IsNullOrWhiteSpace(authorityInput.CustomName) &&
+                                             !string.IsNullOrWhiteSpace(authorityInput.CustomEmail);
+
+                            if (!hasPredefined && !hasCustom)
+                            {
+                                await transaction.RollbackAsync();
+                                return (false, null, "Each authority must have either an AuthorityId or both CustomName and CustomEmail");
+                            }
+
+                            if (hasPredefined && hasCustom)
+                            {
+                                await transaction.RollbackAsync();
+                                return (false, null, "Authority cannot have both AuthorityId and custom fields");
+                            }
+
+                            if (hasPredefined)
+                            {
+                                bool authorityExists = await context.Authorities
+                                    .AnyAsync(a => a.Id == authorityInput.AuthorityId && a.IsActive);
+
+                                if (!authorityExists)
+                                {
+                                    await transaction.RollbackAsync();
+                                    return (false, null, $"Authority with ID {authorityInput.AuthorityId} not found or is inactive");
+                                }
+                            }
+
+                            IssueAuthority issueAuthority = new()
+                            {
+                                Id = Guid.NewGuid(),
+                                IssueId = issue.Id,
+                                AuthorityId = authorityInput.AuthorityId,
+                                CustomName = hasPredefined ? null : authorityInput.CustomName,
+                                CustomEmail = hasPredefined ? null : authorityInput.CustomEmail,
+                                CreatedAt = DateTime.UtcNow
+                            };
+
+                            context.IssueAuthorities.Add(issueAuthority);
+                        }
+                    }
+                }
+
+                // Set status to UnderReview for admin re-approval
+                issue.Status = IssueStatus.UnderReview;
+                issue.UpdatedAt = DateTime.UtcNow;
+
+                await context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                logger.LogInformation("Issue {IssueId} updated and set to UnderReview by user {UserId}", issueId, userProfile.Id);
+
+                // Fetch the updated issue with all relations for the response
+                Issue? updatedIssue = await context.Issues
+                    .Include(i => i.Photos)
+                    .Include(i => i.User)
+                    .Include(i => i.IssueAuthorities)
+                        .ThenInclude(ia => ia.Authority)
+                    .FirstOrDefaultAsync(i => i.Id == issueId);
+
+                if (updatedIssue == null)
+                {
+                    return (false, null, "Issue not found after update");
+                }
+
+                var response = new IssueDetailResponse
+                {
+                    Id = updatedIssue.Id,
+                    Title = updatedIssue.Title,
+                    Description = updatedIssue.Description,
+                    Category = updatedIssue.Category,
+                    Address = updatedIssue.Address,
+                    Latitude = updatedIssue.Latitude,
+                    Longitude = updatedIssue.Longitude,
+                    Neighborhood = updatedIssue.Neighborhood,
+                    District = updatedIssue.District,
+                    Landmark = updatedIssue.Landmark,
+                    Urgency = updatedIssue.Urgency,
+                    EstimatedImpact = updatedIssue.EstimatedImpact,
+                    Tags = updatedIssue.Tags?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                    Status = updatedIssue.Status,
+                    EmailsSent = updatedIssue.EmailsSent,
+                    CurrentSituation = updatedIssue.CurrentSituation,
+                    DesiredOutcome = updatedIssue.DesiredOutcome,
+                    CommunityImpact = updatedIssue.CommunityImpact,
+                    AIGeneratedDescription = updatedIssue.AIGeneratedDescription,
+                    AIProposedSolution = updatedIssue.AIProposedSolution,
+                    PublicVisibility = updatedIssue.PublicVisibility,
+                    CreatedAt = updatedIssue.CreatedAt,
+                    UpdatedAt = updatedIssue.UpdatedAt,
+                    Photos = updatedIssue.Photos.Select(p => new IssuePhotoResponse
+                    {
+                        Id = p.Id,
+                        Url = p.Url,
+                        Description = p.Description,
+                        IsPrimary = p.IsPrimary,
+                        CreatedAt = p.CreatedAt
+                    }).ToList(),
+                    Authorities = updatedIssue.IssueAuthorities.Select(ia => new IssueAuthorityResponse
+                    {
+                        AuthorityId = ia.AuthorityId,
+                        Name = ia.Authority?.Name ?? ia.CustomName ?? string.Empty,
+                        Email = ia.Authority?.Email ?? ia.CustomEmail ?? string.Empty,
+                        IsPredefined = ia.AuthorityId.HasValue
+                    }).ToList(),
+                    User = new UserBasicResponse
+                    {
+                        Id = updatedIssue.User.Id,
+                        Name = updatedIssue.User.DisplayName,
+                        PhotoUrl = updatedIssue.User.PhotoUrl
+                    }
+                };
+
+                return (true, response, null);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                logger.LogError(ex, "Error updating issue {IssueId}", issueId);
+                throw;
+            }
+        });
+    }
 }

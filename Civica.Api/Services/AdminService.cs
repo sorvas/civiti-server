@@ -597,7 +597,7 @@ public class AdminService(
                 PendingReview = pendingCount,
                 Approved = approvedCount,
                 Rejected = rejectedCount,
-                InProgress = statusCounts.GetValueOrDefault(IssueStatus.InProgress, 0),
+                Active = statusCounts.GetValueOrDefault(IssueStatus.Active, 0),
                 Resolved = resolvedCount,
                 SubmissionsToday = submissionsToday,
                 SubmissionsThisWeek = submissionsThisWeek,

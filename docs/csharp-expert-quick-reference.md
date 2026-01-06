@@ -153,10 +153,10 @@ public class Issue
 public enum IssueStatus
 {
     Draft,
-    Pending, 
+    Pending,
     Approved,
     Rejected,
-    InProgress,
+    Active,
     Resolved
 }
 ```

@@ -524,7 +524,7 @@ public enum IssueStatus
     Submitted,
     UnderReview,
     Approved,
-    InProgress,
+    Active,
     Resolved,
     Rejected
 }

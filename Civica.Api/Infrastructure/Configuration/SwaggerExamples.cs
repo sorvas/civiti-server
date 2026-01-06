@@ -117,7 +117,7 @@ public class IssueListResponseExample : IExamplesProvider<IssueListResponse>
             CreatedAt = DateTime.UtcNow.AddDays(-5),
             MainPhotoUrl = "https://storage.civica.ro/photos/issue-123-photo1.jpg",
             Neighborhood = "Cotroceni",
-            Status = IssueStatus.InProgress
+            Status = IssueStatus.Active
         };
     }
 }
@@ -345,7 +345,7 @@ public class AdminStatisticsResponseExample : IExamplesProvider<AdminStatisticsR
             PendingReview = 12,
             Approved = 120,
             Rejected = 24,
-            InProgress = 45,
+            Active = 45,
             Resolved = 38,
 
             // Time-based statistics

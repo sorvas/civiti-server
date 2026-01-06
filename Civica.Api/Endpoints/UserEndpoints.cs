@@ -214,5 +214,78 @@ public static class UserEndpoints
         .WithName("GetLeaderboard")
         .WithSummary("Get user leaderboard")
         .Produces<LeaderboardResponse>(StatusCodes.Status200OK);
+
+        // PUT /api/user/issues/{id}/status
+        group.MapPut("/issues/{id:guid}/status", async (
+            Guid id,
+            UpdateIssueStatusRequest request,
+            HttpContext context,
+            IIssueService issueService) =>
+        {
+            var supabaseUserId = context.User.GetSupabaseUserId();
+            if (string.IsNullOrEmpty(supabaseUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var isAdmin = context.User.IsAdmin();
+            var (success, error) = await issueService.UpdateIssueStatusAsync(id, request, supabaseUserId, isAdmin);
+
+            if (!success)
+            {
+                return error switch
+                {
+                    "Issue not found" => Results.NotFound(new { error }),
+                    "You can only change status of your own issues" => Results.Forbid(),
+                    _ => Results.BadRequest(new { error })
+                };
+            }
+
+            return Results.NoContent();
+        })
+        .WithName("UpdateUserIssueStatus")
+        .WithSummary("Update issue status")
+        .WithDescription("Allows the authenticated user to change their issue's status. Users can set status to: Cancelled, Resolved. Cannot change status of already cancelled or resolved issues.")
+        .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden)
+        .Produces(StatusCodes.Status404NotFound);
+
+        // PUT /api/user/issues/{id}
+        group.MapPut("/issues/{id:guid}", async (
+            Guid id,
+            UpdateIssueRequest request,
+            HttpContext context,
+            IIssueService issueService) =>
+        {
+            var supabaseUserId = context.User.GetSupabaseUserId();
+            if (string.IsNullOrEmpty(supabaseUserId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var (success, issue, error) = await issueService.UpdateIssueAsync(id, request, supabaseUserId);
+
+            if (!success)
+            {
+                return error switch
+                {
+                    "Issue not found" => Results.NotFound(new { error }),
+                    "You can only edit your own issues" => Results.Forbid(),
+                    _ => Results.BadRequest(new { error })
+                };
+            }
+
+            return Results.Ok(issue);
+        })
+        .WithName("UpdateUserIssue")
+        .WithSummary("Update and resubmit an issue")
+        .WithDescription("Allows the authenticated user to edit their own issue. Cannot edit Cancelled or Resolved issues. After editing, the issue status is set to 'UnderReview' for admin re-approval.")
+        .Produces<IssueDetailResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden)
+        .Produces(StatusCodes.Status404NotFound);
     }
 }
