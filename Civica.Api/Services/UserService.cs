@@ -6,6 +6,7 @@ using Civica.Api.Models.Responses.Gamification;
 using Civica.Api.Models.Domain;
 using Civica.Api.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Civica.Api.Services;
 
@@ -71,6 +72,7 @@ public class UserService(
     {
         try
         {
+            // Use AsNoTracking since we only need to read user data for the response
             UserProfile? user = await context.UserProfiles
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
@@ -78,6 +80,19 @@ public class UserService(
             if (user == null)
             {
                 logger.LogWarning("User not found for Supabase ID: {SupabaseUserId}", supabaseUserId);
+                return null;
+            }
+
+            // Track login streak (once per day)
+            await UpdateLoginStreakAsync(user.Id);
+
+            // Reload user to get updated streak values after potential modification
+            user = await context.UserProfiles.AsNoTracking().FirstOrDefaultAsync(u => u.Id == user.Id);
+
+            // Handle rare case where user was deleted during streak update
+            if (user == null)
+            {
+                logger.LogWarning("User was deleted during profile load for Supabase ID: {SupabaseUserId}", supabaseUserId);
                 return null;
             }
 
@@ -111,6 +126,88 @@ public class UserService(
         }
     }
 
+    private async Task UpdateLoginStreakAsync(Guid userId)
+    {
+        // Use execution strategy to handle transient failures
+        // Re-fetch user inside callback to ensure fresh data on retry
+        var strategy = context.Database.CreateExecutionStrategy();
+
+        await strategy.ExecuteAsync(async () =>
+        {
+            // Clear change tracker to ensure fresh data on retry
+            context.ChangeTracker.Clear();
+
+            using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync();
+
+            try
+            {
+                // Re-fetch user inside execution strategy to get fresh data on retry
+                UserProfile? user = await context.UserProfiles.FirstOrDefaultAsync(u => u.Id == userId);
+                if (user == null)
+                {
+                    logger.LogWarning("User {UserId} not found for login streak update", userId);
+                    return;
+                }
+
+                var today = DateTime.UtcNow.Date;
+                var lastActivityDate = user.LastActivityDate.Date;
+
+                // Skip if already updated today
+                if (lastActivityDate == today)
+                {
+                    return;
+                }
+
+                var previousStreak = user.CurrentLoginStreak;
+
+                // Check if this is a consecutive day
+                if (lastActivityDate == today.AddDays(-1))
+                {
+                    // Consecutive day - increment streak
+                    user.CurrentLoginStreak++;
+                    logger.LogInformation("User {UserId} login streak incremented to {Streak}", user.Id, user.CurrentLoginStreak);
+                }
+                else
+                {
+                    // Streak broken - reset to 1
+                    user.CurrentLoginStreak = 1;
+                    logger.LogInformation("User {UserId} login streak reset to 1 (was {PreviousStreak})", user.Id, previousStreak);
+                }
+
+                // Update longest streak if current exceeds it
+                if (user.CurrentLoginStreak > user.LongestLoginStreak)
+                {
+                    user.LongestLoginStreak = user.CurrentLoginStreak;
+                }
+
+                // Update last activity date
+                user.LastActivityDate = DateTime.UtcNow;
+                user.UpdatedAt = DateTime.UtcNow;
+
+                await context.SaveChangesAsync();
+
+                // Update achievement progress for login_streak (absolute value, not incremental)
+                await gamificationService.UpdateAchievementProgressAsync(
+                    user.Id,
+                    "login_streak",
+                    user.CurrentLoginStreak,
+                    isAbsolute: true);
+
+                // Check for badge eligibility
+                await gamificationService.CheckAndAwardBadgesAsync(user.Id);
+
+                // Commit only after all operations succeed
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                logger.LogError(ex, "Error updating login streak for user {UserId}", userId);
+                throw;
+            }
+        });
+    }
+
     public async Task<UserProfileResponse> CreateUserProfileAsync(CreateUserProfileRequest request, string supabaseUserId, string email)
     {
         try
@@ -136,6 +233,9 @@ public class UserService(
                 ResidenceType = request.ResidenceType,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
+                LastActivityDate = DateTime.UtcNow,
+                CurrentLoginStreak = 1, // Count account creation day as day 1
+                LongestLoginStreak = 1,
                 EmailVerified = true // Supabase handles verification
             };
 

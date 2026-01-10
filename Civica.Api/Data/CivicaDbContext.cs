@@ -41,7 +41,10 @@ public class CivicaDbContext(DbContextOptions<CivicaDbContext> options) : DbCont
 
     private static void SeedBadges(ModelBuilder modelBuilder)
     {
+        var seedDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
         modelBuilder.Entity<Badge>().HasData(
+            // === ISSUES REPORTED PROGRESSION ===
             new Badge
             {
                 Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
@@ -53,21 +56,118 @@ public class CivicaDbContext(DbContextOptions<CivicaDbContext> options) : DbCont
                 RequirementType = "issues_reported",
                 RequirementValue = 1,
                 RequirementDescription = "Report your first issue",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = seedDate
             },
+            new Badge
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111112"),
+                Name = "Active Citizen",
+                Description = "Reported 5 community issues",
+                IconUrl = "/assets/badges/active-citizen.svg",
+                Category = BadgeCategory.Progress,
+                Rarity = BadgeRarity.Uncommon,
+                RequirementType = "issues_reported",
+                RequirementValue = 5,
+                RequirementDescription = "Report 5 issues",
+                CreatedAt = seedDate
+            },
+            new Badge
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111113"),
+                Name = "Community Champion",
+                Description = "Reported 15 community issues",
+                IconUrl = "/assets/badges/community-champion.svg",
+                Category = BadgeCategory.Progress,
+                Rarity = BadgeRarity.Rare,
+                RequirementType = "issues_reported",
+                RequirementValue = 15,
+                RequirementDescription = "Report 15 issues",
+                CreatedAt = seedDate
+            },
+            new Badge
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111114"),
+                Name = "Civic Leader",
+                Description = "Reported 30 community issues - a true leader!",
+                IconUrl = "/assets/badges/civic-leader.svg",
+                Category = BadgeCategory.Achievement,
+                Rarity = BadgeRarity.Epic,
+                RequirementType = "issues_reported",
+                RequirementValue = 30,
+                RequirementDescription = "Report 30 issues",
+                CreatedAt = seedDate
+            },
+
+            // === ISSUES RESOLVED PROGRESSION ===
+            new Badge
+            {
+                Id = Guid.Parse("55555555-5555-5555-5555-555555555555"),
+                Name = "Problem Solver",
+                Description = "Had your first issue resolved",
+                IconUrl = "/assets/badges/problem-solver.svg",
+                Category = BadgeCategory.Progress,
+                Rarity = BadgeRarity.Uncommon,
+                RequirementType = "issues_resolved",
+                RequirementValue = 1,
+                RequirementDescription = "1 issue resolved",
+                CreatedAt = seedDate
+            },
+            new Badge
+            {
+                Id = Guid.Parse("55555555-5555-5555-5555-555555555556"),
+                Name = "Resolution Expert",
+                Description = "Had 5 of your issues resolved",
+                IconUrl = "/assets/badges/resolution-expert.svg",
+                Category = BadgeCategory.Achievement,
+                Rarity = BadgeRarity.Rare,
+                RequirementType = "issues_resolved",
+                RequirementValue = 5,
+                RequirementDescription = "5 issues resolved",
+                CreatedAt = seedDate
+            },
+            new Badge
+            {
+                Id = Guid.Parse("55555555-5555-5555-5555-555555555557"),
+                Name = "Master Resolver",
+                Description = "Had 10 of your issues resolved - making real impact!",
+                IconUrl = "/assets/badges/master-resolver.svg",
+                Category = BadgeCategory.Achievement,
+                Rarity = BadgeRarity.Epic,
+                RequirementType = "issues_resolved",
+                RequirementValue = 10,
+                RequirementDescription = "10 issues resolved",
+                CreatedAt = seedDate
+            },
+
+            // === QUALITY PHOTOS PROGRESSION ===
             new Badge
             {
                 Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
                 Name = "Picture Perfect",
-                Description = "Uploaded high-quality photos with your report",
+                Description = "Uploaded high-quality photos with your reports",
                 IconUrl = "/assets/badges/picture-perfect.svg",
                 Category = BadgeCategory.Progress,
                 Rarity = BadgeRarity.Uncommon,
                 RequirementType = "quality_photos",
                 RequirementValue = 3,
-                RequirementDescription = "Upload 3 high-quality photos",
-                CreatedAt = DateTime.UtcNow
+                RequirementDescription = "Upload 3 issues with quality photos",
+                CreatedAt = seedDate
             },
+            new Badge
+            {
+                Id = Guid.Parse("22222222-2222-2222-2222-222222222223"),
+                Name = "Photo Journalist",
+                Description = "Documented 10 issues with quality photos",
+                IconUrl = "/assets/badges/photo-journalist.svg",
+                Category = BadgeCategory.Achievement,
+                Rarity = BadgeRarity.Rare,
+                RequirementType = "quality_photos",
+                RequirementValue = 10,
+                RequirementDescription = "Upload 10 issues with quality photos",
+                CreatedAt = seedDate
+            },
+
+            // === COMMUNITY VOTES (for future) ===
             new Badge
             {
                 Id = Guid.Parse("44444444-4444-4444-4444-444444444444"),
@@ -79,50 +179,213 @@ public class CivicaDbContext(DbContextOptions<CivicaDbContext> options) : DbCont
                 RequirementType = "community_votes",
                 RequirementValue = 10,
                 RequirementDescription = "Vote on 10 issues",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = seedDate
+            },
+
+            // === LOGIN STREAK PROGRESSION ===
+            new Badge
+            {
+                Id = Guid.Parse("66666666-6666-6666-6666-666666666666"),
+                Name = "Dedicated Citizen",
+                Description = "Logged in 7 days in a row",
+                IconUrl = "/assets/badges/dedicated-citizen.svg",
+                Category = BadgeCategory.Progress,
+                Rarity = BadgeRarity.Uncommon,
+                RequirementType = "login_streak",
+                RequirementValue = 7,
+                RequirementDescription = "7-day login streak",
+                CreatedAt = seedDate
             },
             new Badge
             {
-                Id = Guid.Parse("55555555-5555-5555-5555-555555555555"),
-                Name = "Problem Solver",
-                Description = "3 of your issues have been resolved",
-                IconUrl = "/assets/badges/problem-solver.svg",
+                Id = Guid.Parse("66666666-6666-6666-6666-666666666667"),
+                Name = "Consistency King",
+                Description = "Logged in 30 days in a row - incredible dedication!",
+                IconUrl = "/assets/badges/consistency-king.svg",
                 Category = BadgeCategory.Achievement,
                 Rarity = BadgeRarity.Rare,
-                RequirementType = "issues_resolved",
-                RequirementValue = 3,
-                RequirementDescription = "3 issues resolved",
-                CreatedAt = DateTime.UtcNow
+                RequirementType = "login_streak",
+                RequirementValue = 30,
+                RequirementDescription = "30-day login streak",
+                CreatedAt = seedDate
+            },
+
+            // === LEVEL PROGRESSION ===
+            new Badge
+            {
+                Id = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+                Name = "Rising Star",
+                Description = "Reached level 5",
+                IconUrl = "/assets/badges/rising-star.svg",
+                Category = BadgeCategory.Progress,
+                Rarity = BadgeRarity.Uncommon,
+                RequirementType = "level",
+                RequirementValue = 5,
+                RequirementDescription = "Reach level 5",
+                CreatedAt = seedDate
+            },
+            new Badge
+            {
+                Id = Guid.Parse("77777777-7777-7777-7777-777777777778"),
+                Name = "Veteran",
+                Description = "Reached level 10 - a seasoned civic advocate",
+                IconUrl = "/assets/badges/veteran.svg",
+                Category = BadgeCategory.Achievement,
+                Rarity = BadgeRarity.Rare,
+                RequirementType = "level",
+                RequirementValue = 10,
+                RequirementDescription = "Reach level 10",
+                CreatedAt = seedDate
+            },
+            new Badge
+            {
+                Id = Guid.Parse("77777777-7777-7777-7777-777777777779"),
+                Name = "Legend",
+                Description = "Reached level 20 - a true civic legend!",
+                IconUrl = "/assets/badges/legend.svg",
+                Category = BadgeCategory.Special,
+                Rarity = BadgeRarity.Legendary,
+                RequirementType = "level",
+                RequirementValue = 20,
+                RequirementDescription = "Reach level 20",
+                CreatedAt = seedDate
             }
         );
     }
 
     private static void SeedAchievements(ModelBuilder modelBuilder)
     {
+        var seedDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
         modelBuilder.Entity<Achievement>().HasData(
+            // === ISSUES REPORTED ACHIEVEMENTS ===
             new Achievement
             {
                 Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
                 Title = "First Steps",
-                Description = "Report your first issue",
+                Description = "Report your first issue to start making a difference",
                 MaxProgress = 1,
-                RewardPoints = 50,
-                RewardBadgeId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                RewardPoints = 25,
+                RewardBadgeId = Guid.Parse("11111111-1111-1111-1111-111111111111"), // Civic Starter
                 AchievementType = "issues_reported",
                 RequirementData = "{\"target\": 1}",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = seedDate
             },
             new Achievement
             {
-                Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-                Title = "Community Champion",
-                Description = "Report 10 issues",
-                MaxProgress = 10,
-                RewardPoints = 200,
-                RewardBadgeId = null,
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab"),
+                Title = "Getting Started",
+                Description = "Report 5 issues and become an active citizen",
+                MaxProgress = 5,
+                RewardPoints = 75,
+                RewardBadgeId = Guid.Parse("11111111-1111-1111-1111-111111111112"), // Active Citizen
                 AchievementType = "issues_reported",
-                RequirementData = "{\"target\": 10}",
-                CreatedAt = DateTime.UtcNow
+                RequirementData = "{\"target\": 5}",
+                CreatedAt = seedDate
+            },
+            new Achievement
+            {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac"),
+                Title = "Community Champion",
+                Description = "Report 15 issues to become a community champion",
+                MaxProgress = 15,
+                RewardPoints = 150,
+                RewardBadgeId = Guid.Parse("11111111-1111-1111-1111-111111111113"), // Community Champion badge
+                AchievementType = "issues_reported",
+                RequirementData = "{\"target\": 15}",
+                CreatedAt = seedDate
+            },
+            new Achievement
+            {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaad"),
+                Title = "Civic Leadership",
+                Description = "Report 30 issues and become a civic leader",
+                MaxProgress = 30,
+                RewardPoints = 300,
+                RewardBadgeId = Guid.Parse("11111111-1111-1111-1111-111111111114"), // Civic Leader
+                AchievementType = "issues_reported",
+                RequirementData = "{\"target\": 30}",
+                CreatedAt = seedDate
+            },
+
+            // === ISSUES RESOLVED ACHIEVEMENTS ===
+            new Achievement
+            {
+                Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                Title = "First Resolution",
+                Description = "Get your first issue resolved",
+                MaxProgress = 1,
+                RewardPoints = 50,
+                RewardBadgeId = Guid.Parse("55555555-5555-5555-5555-555555555555"), // Problem Solver
+                AchievementType = "issues_resolved",
+                RequirementData = "{\"target\": 1}",
+                CreatedAt = seedDate
+            },
+            new Achievement
+            {
+                Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc"),
+                Title = "Resolution Streak",
+                Description = "Get 5 of your issues resolved",
+                MaxProgress = 5,
+                RewardPoints = 150,
+                RewardBadgeId = Guid.Parse("55555555-5555-5555-5555-555555555556"), // Resolution Expert
+                AchievementType = "issues_resolved",
+                RequirementData = "{\"target\": 5}",
+                CreatedAt = seedDate
+            },
+
+            // === LOGIN STREAK ACHIEVEMENTS ===
+            new Achievement
+            {
+                Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+                Title = "Week Warrior",
+                Description = "Log in 7 days in a row",
+                MaxProgress = 7,
+                RewardPoints = 75,
+                RewardBadgeId = Guid.Parse("66666666-6666-6666-6666-666666666666"), // Dedicated Citizen
+                AchievementType = "login_streak",
+                RequirementData = "{\"target\": 7}",
+                CreatedAt = seedDate
+            },
+            new Achievement
+            {
+                Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccd"),
+                Title = "Monthly Dedication",
+                Description = "Log in 30 days in a row",
+                MaxProgress = 30,
+                RewardPoints = 200,
+                RewardBadgeId = Guid.Parse("66666666-6666-6666-6666-666666666667"), // Consistency King
+                AchievementType = "login_streak",
+                RequirementData = "{\"target\": 30}",
+                CreatedAt = seedDate
+            },
+
+            // === QUALITY PHOTOS ACHIEVEMENT ===
+            new Achievement
+            {
+                Id = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
+                Title = "Photography Basics",
+                Description = "Submit 3 issues with quality photos",
+                MaxProgress = 3,
+                RewardPoints = 50,
+                RewardBadgeId = Guid.Parse("22222222-2222-2222-2222-222222222222"), // Picture Perfect
+                AchievementType = "quality_photos",
+                RequirementData = "{\"target\": 3}",
+                CreatedAt = seedDate
+            },
+
+            // === LEVEL ACHIEVEMENTS ===
+            new Achievement
+            {
+                Id = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
+                Title = "Level Up!",
+                Description = "Reach level 5",
+                MaxProgress = 5,
+                RewardPoints = 100,
+                RewardBadgeId = Guid.Parse("77777777-7777-7777-7777-777777777777"), // Rising Star
+                AchievementType = "level_up",
+                RequirementData = "{\"target\": 5}",
+                CreatedAt = seedDate
             }
         );
     }

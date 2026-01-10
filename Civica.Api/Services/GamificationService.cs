@@ -3,7 +3,6 @@ using Civica.Api.Models.Responses.Gamification;
 using Civica.Api.Models.Domain;
 using Civica.Api.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
 
 namespace Civica.Api.Services;
 
@@ -23,16 +22,16 @@ public class GamificationService(
             }
 
             user.Points += points;
-            
+
             // Update level if needed
             var newLevel = CalculateLevelFromPoints(user.Points);
             if (newLevel > user.Level)
             {
                 user.Level = newLevel;
                 logger.LogInformation("User {UserId} leveled up to {Level}", userId, newLevel);
-                
-                // Award level up achievement
-                await UpdateAchievementProgressAsync(userId, "level_up", newLevel);
+
+                // Award level up achievement (use absolute progress to set level directly)
+                await UpdateAchievementProgressAsync(userId, "level_up", newLevel, isAbsolute: true);
             }
 
             user.UpdatedAt = DateTime.UtcNow;
@@ -81,6 +80,8 @@ public class GamificationService(
                     };
 
                     context.UserBadges.Add(userBadge);
+                    // Update the HashSet to prevent duplicate insertions during nested calls
+                    earnedBadgeIds.Add(badge.Id);
                     logger.LogInformation("User {UserId} earned badge {BadgeName}", userId, badge.Name);
 
                     // Award points for earning badge
@@ -124,29 +125,39 @@ public class GamificationService(
                     userAchievement.CompletedAt = DateTime.UtcNow;
 
                     // Award points
-                    await AwardPointsAsync(userId, userAchievement.Achievement.RewardPoints, 
+                    await AwardPointsAsync(userId, userAchievement.Achievement.RewardPoints,
                         $"Completed achievement: {userAchievement.Achievement.Title}");
 
                     // Award badge if associated
                     if (userAchievement.Achievement.RewardBadgeId.HasValue)
                     {
-                        var existingBadge = await context.UserBadges
-                            .AnyAsync(ub => ub.UserId == userId && ub.BadgeId == userAchievement.Achievement.RewardBadgeId.Value);
+                        var rewardBadgeId = userAchievement.Achievement.RewardBadgeId.Value;
 
-                        if (!existingBadge)
+                        // Check both database AND change tracker for existing badge
+                        // (change tracker may have badges added but not yet committed)
+                        var existingInDb = await context.UserBadges
+                            .AnyAsync(ub => ub.UserId == userId && ub.BadgeId == rewardBadgeId);
+
+                        var existingInChangeTracker = context.ChangeTracker
+                            .Entries<UserBadge>()
+                            .Any(e => e.Entity.UserId == userId &&
+                                      e.Entity.BadgeId == rewardBadgeId &&
+                                      e.State == EntityState.Added);
+
+                        if (!existingInDb && !existingInChangeTracker)
                         {
                             UserBadge userBadge = new()
                             {
                                 Id = Guid.NewGuid(),
                                 UserId = userId,
-                                BadgeId = userAchievement.Achievement.RewardBadgeId.Value,
+                                BadgeId = rewardBadgeId,
                                 EarnedAt = DateTime.UtcNow
                             };
                             context.UserBadges.Add(userBadge);
                         }
                     }
 
-                    logger.LogInformation("User {UserId} completed achievement {AchievementTitle}", 
+                    logger.LogInformation("User {UserId} completed achievement {AchievementTitle}",
                         userId, userAchievement.Achievement.Title);
                 }
             }
@@ -160,7 +171,7 @@ public class GamificationService(
         }
     }
 
-    public async Task UpdateAchievementProgressAsync(Guid userId, string achievementType, int progress = 1)
+    public async Task UpdateAchievementProgressAsync(Guid userId, string achievementType, int progress = 1, bool isAbsolute = false)
     {
         try
         {
@@ -187,7 +198,10 @@ public class GamificationService(
 
                 if (!userAchievement.Completed)
                 {
-                    userAchievement.Progress = Math.Min(userAchievement.Progress + progress, achievement.MaxProgress);
+                    // For absolute progress (e.g., streaks), set directly; otherwise add to existing
+                    userAchievement.Progress = isAbsolute
+                        ? Math.Min(progress, achievement.MaxProgress)
+                        : Math.Min(userAchievement.Progress + progress, achievement.MaxProgress);
                 }
             }
 
@@ -239,7 +253,7 @@ public class GamificationService(
             IQueryable<UserAchievement> achievementsQuery = context.UserAchievements
                 .Include(ua => ua.Achievement)
                 .Where(ua => ua.UserId == userId);
-                
+
             List<AchievementProgressResponse> userAchievements = await achievementsQuery
                 .OrderBy(ua => ua.Completed)
                 .ThenByDescending(ua => ua.Progress)
@@ -253,8 +267,8 @@ public class GamificationService(
                     RewardPoints = ua.Achievement.RewardPoints,
                     Completed = ua.Completed,
                     CompletedAt = ua.CompletedAt,
-                    PercentageComplete = ua.Achievement.MaxProgress > 0 
-                        ? Math.Round((decimal)ua.Progress / ua.Achievement.MaxProgress * 100, 2) 
+                    PercentageComplete = ua.Achievement.MaxProgress > 0
+                        ? Math.Round((decimal)ua.Progress / ua.Achievement.MaxProgress * 100, 2)
                         : 0
                 })
                 .ToListAsync();
@@ -364,18 +378,20 @@ public class GamificationService(
                     Description = a.Description,
                     MaxProgress = a.MaxProgress,
                     RewardPoints = a.RewardPoints,
-                    RewardBadge = a.RewardBadge != null ? new BadgeResponse
-                    {
-                        Id = a.RewardBadge.Id,
-                        Name = a.RewardBadge.Name,
-                        Description = a.RewardBadge.Description,
-                        IconUrl = a.RewardBadge.IconUrl,
-                        Category = a.RewardBadge.Category.ToString(),
-                        Rarity = a.RewardBadge.Rarity.ToString(),
-                        RequirementDescription = a.RewardBadge.RequirementDescription,
-                        IsEarned = false,
-                        EarnedAt = null
-                    } : null,
+                    RewardBadge = a.RewardBadge != null
+                        ? new BadgeResponse
+                        {
+                            Id = a.RewardBadge.Id,
+                            Name = a.RewardBadge.Name,
+                            Description = a.RewardBadge.Description,
+                            IconUrl = a.RewardBadge.IconUrl,
+                            Category = a.RewardBadge.Category.ToString(),
+                            Rarity = a.RewardBadge.Rarity.ToString(),
+                            RequirementDescription = a.RewardBadge.RequirementDescription,
+                            IsEarned = false,
+                            EarnedAt = null
+                        }
+                        : null,
                     AchievementType = a.AchievementType
                 })
                 .ToListAsync();

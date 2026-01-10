@@ -7,7 +7,7 @@ public interface IGamificationService
     Task AwardPointsAsync(Guid userId, int points, string reason);
     Task CheckAndAwardBadgesAsync(Guid userId);
     Task CheckAndAwardAchievementsAsync(Guid userId);
-    Task UpdateAchievementProgressAsync(Guid userId, string achievementType, int progress = 1);
+    Task UpdateAchievementProgressAsync(Guid userId, string achievementType, int progress = 1, bool isAbsolute = false);
     Task<List<BadgeResponse>> GetUserBadgesAsync(Guid userId);
     Task<List<AchievementProgressResponse>> GetUserAchievementsAsync(Guid userId);
     Task<List<BadgeResponse>> GetAvailableBadgesAsync(Guid userId);

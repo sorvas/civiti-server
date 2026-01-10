@@ -279,12 +279,9 @@ public class AdminService(
 
             context.AdminActions.Add(adminAction);
 
-            // Award points to user
-            await gamificationService.AwardPointsAsync(issue.UserId, 100, $"Issue approved: {issue.Title}");
-            
-            // Update achievement progress
-            await gamificationService.UpdateAchievementProgressAsync(issue.UserId, "issues_approved", 1);
-            
+            // Award points to user (50 points for approval)
+            await gamificationService.AwardPointsAsync(issue.UserId, 50, $"Issue approved: {issue.Title}");
+
             // Check for new badges
             await gamificationService.CheckAndAwardBadgesAsync(issue.UserId);
 
@@ -382,9 +379,6 @@ public class AdminService(
             };
 
             context.AdminActions.Add(adminAction);
-
-            // No points awarded for rejection, but update stats
-            await gamificationService.UpdateAchievementProgressAsync(issue.UserId, "issues_rejected", 1);
 
             await context.SaveChangesAsync();
             await transaction.CommitAsync();
