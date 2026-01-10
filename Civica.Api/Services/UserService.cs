@@ -87,7 +87,14 @@ public class UserService(
             await UpdateLoginStreakAsync(user.Id);
 
             // Reload user to get updated streak values after potential modification
-            user = (await context.UserProfiles.AsNoTracking().FirstOrDefaultAsync(u => u.Id == user.Id))!;
+            user = await context.UserProfiles.AsNoTracking().FirstOrDefaultAsync(u => u.Id == user.Id);
+
+            // Handle rare case where user was deleted during streak update
+            if (user == null)
+            {
+                logger.LogWarning("User was deleted during profile load for Supabase ID: {SupabaseUserId}", supabaseUserId);
+                return null;
+            }
 
             UserGamificationResponse gamification = await GetUserGamificationAsync(supabaseUserId);
 

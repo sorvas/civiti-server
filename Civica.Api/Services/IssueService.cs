@@ -348,19 +348,14 @@ public class IssueService(
                 1);
 
             // Update quality_photos achievement if issue has 3+ photos
+            // Use incremental progress (not absolute) to avoid race conditions with concurrent issue creations
             var photoCount = request.PhotoUrls?.Count(url => !string.IsNullOrWhiteSpace(url)) ?? 0;
             if (photoCount >= 3)
             {
-                // Count total issues with 3+ photos for this user (already includes the new issue after SaveChangesAsync)
-                var qualityPhotoIssueCount = await context.Issues
-                    .Where(i => i.UserId == userProfile.Id && i.Photos.Count >= 3)
-                    .CountAsync();
-
                 await gamificationService.UpdateAchievementProgressAsync(
                     userProfile.Id,
                     "quality_photos",
-                    qualityPhotoIssueCount,
-                    isAbsolute: true);
+                    1);
             }
 
             // Check for badge eligibility based on new stats
