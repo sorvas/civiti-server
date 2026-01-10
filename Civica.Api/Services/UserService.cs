@@ -6,6 +6,7 @@ using Civica.Api.Models.Responses.Gamification;
 using Civica.Api.Models.Domain;
 using Civica.Api.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Civica.Api.Services;
 
@@ -124,43 +125,63 @@ public class UserService(
             return;
         }
 
-        var previousStreak = user.CurrentLoginStreak;
+        // Use execution strategy to handle transient failures
+        var strategy = context.Database.CreateExecutionStrategy();
 
-        // Check if this is a consecutive day
-        if (lastActivityDate == today.AddDays(-1))
+        await strategy.ExecuteAsync(async () =>
         {
-            // Consecutive day - increment streak
-            user.CurrentLoginStreak++;
-            logger.LogInformation("User {UserId} login streak incremented to {Streak}", user.Id, user.CurrentLoginStreak);
-        }
-        else
-        {
-            // Streak broken - reset to 1
-            user.CurrentLoginStreak = 1;
-            logger.LogInformation("User {UserId} login streak reset to 1 (was {PreviousStreak})", user.Id, previousStreak);
-        }
+            using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync();
 
-        // Update longest streak if current exceeds it
-        if (user.CurrentLoginStreak > user.LongestLoginStreak)
-        {
-            user.LongestLoginStreak = user.CurrentLoginStreak;
-        }
+            try
+            {
+                var previousStreak = user.CurrentLoginStreak;
 
-        // Update last activity date
-        user.LastActivityDate = DateTime.UtcNow;
-        user.UpdatedAt = DateTime.UtcNow;
+                // Check if this is a consecutive day
+                if (lastActivityDate == today.AddDays(-1))
+                {
+                    // Consecutive day - increment streak
+                    user.CurrentLoginStreak++;
+                    logger.LogInformation("User {UserId} login streak incremented to {Streak}", user.Id, user.CurrentLoginStreak);
+                }
+                else
+                {
+                    // Streak broken - reset to 1
+                    user.CurrentLoginStreak = 1;
+                    logger.LogInformation("User {UserId} login streak reset to 1 (was {PreviousStreak})", user.Id, previousStreak);
+                }
 
-        await context.SaveChangesAsync();
+                // Update longest streak if current exceeds it
+                if (user.CurrentLoginStreak > user.LongestLoginStreak)
+                {
+                    user.LongestLoginStreak = user.CurrentLoginStreak;
+                }
 
-        // Update achievement progress for login_streak (absolute value, not incremental)
-        await gamificationService.UpdateAchievementProgressAsync(
-            user.Id,
-            "login_streak",
-            user.CurrentLoginStreak,
-            isAbsolute: true);
+                // Update last activity date
+                user.LastActivityDate = DateTime.UtcNow;
+                user.UpdatedAt = DateTime.UtcNow;
 
-        // Check for badge eligibility
-        await gamificationService.CheckAndAwardBadgesAsync(user.Id);
+                await context.SaveChangesAsync();
+
+                // Update achievement progress for login_streak (absolute value, not incremental)
+                await gamificationService.UpdateAchievementProgressAsync(
+                    user.Id,
+                    "login_streak",
+                    user.CurrentLoginStreak,
+                    isAbsolute: true);
+
+                // Check for badge eligibility
+                await gamificationService.CheckAndAwardBadgesAsync(user.Id);
+
+                // Commit only after all operations succeed
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                logger.LogError(ex, "Error updating login streak for user {UserId}", user.Id);
+                throw;
+            }
+        });
     }
 
     public async Task<UserProfileResponse> CreateUserProfileAsync(CreateUserProfileRequest request, string supabaseUserId, string email)
@@ -188,6 +209,9 @@ public class UserService(
                 ResidenceType = request.ResidenceType,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
+                LastActivityDate = DateTime.UtcNow,
+                CurrentLoginStreak = 1, // Count account creation day as day 1
+                LongestLoginStreak = 1,
                 EmailVerified = true // Supabase handles verification
             };
 
