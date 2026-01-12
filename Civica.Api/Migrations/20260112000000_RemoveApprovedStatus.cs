@@ -40,6 +40,12 @@ namespace Civica.Api.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // Revert data migration first (before recreating old indexes)
+            // Note: This may affect issues that were originally 'Active', but ensures
+            // database consistency between indexes and data after rollback
+            migrationBuilder.Sql(
+                "UPDATE \"Issues\" SET \"Status\" = 'Approved' WHERE \"Status\" = 'Active'");
+
             // Revert indexes back to 'Approved' filter
             migrationBuilder.DropIndex(
                 name: "IX_Issues_Status_PublicVisibility",
@@ -60,9 +66,6 @@ namespace Civica.Api.Migrations
                 table: "Issues",
                 columns: new[] { "Status", "PublicVisibility", "CreatedAt" },
                 filter: "\"Status\" = 'Approved' AND \"PublicVisibility\" = true");
-
-            // Note: Data migration (Active -> Approved) is not automatically reverted
-            // as it could affect issues that were originally Active
         }
     }
 }
