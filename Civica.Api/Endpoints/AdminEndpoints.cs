@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Civica.Api.Services.Interfaces;
 using Civica.Api.Infrastructure.Constants;
+using Civica.Api.Infrastructure.Extensions;
 using Civica.Api.Models.Requests.Admin;
 using Civica.Api.Models.Responses.Admin;
 using Civica.Api.Models.Responses.Common;
@@ -116,7 +117,7 @@ public static class AdminEndpoints
             IAdminService adminService,
             ClaimsPrincipal user) =>
         {
-            var adminUserId = user.FindFirst(AuthorizationPolicies.Claims.UserId)?.Value
+            var adminUserId = user.GetSupabaseUserId()
                 ?? throw new UnauthorizedAccessException("Admin user ID not found");
 
             IssueActionResponse result = await adminService.ApproveIssueAsync(id, request, adminUserId);
@@ -136,7 +137,7 @@ public static class AdminEndpoints
             IAdminService adminService,
             ClaimsPrincipal user) =>
         {
-            var adminUserId = user.FindFirst(AuthorizationPolicies.Claims.UserId)?.Value
+            var adminUserId = user.GetSupabaseUserId()
                 ?? throw new UnauthorizedAccessException("Admin user ID not found");
 
             IssueActionResponse result = await adminService.RejectIssueAsync(id, request, adminUserId);
@@ -156,7 +157,7 @@ public static class AdminEndpoints
             IAdminService adminService,
             ClaimsPrincipal user) =>
         {
-            var adminUserId = user.FindFirst(AuthorizationPolicies.Claims.UserId)?.Value
+            var adminUserId = user.GetSupabaseUserId()
                 ?? throw new UnauthorizedAccessException("Admin user ID not found");
 
             IssueActionResponse result = await adminService.RequestChangesAsync(id, request, adminUserId);
@@ -187,7 +188,7 @@ public static class AdminEndpoints
             IAdminService adminService,
             ClaimsPrincipal user) =>
         {
-            var adminUserId = user.FindFirst(AuthorizationPolicies.Claims.UserId)?.Value
+            var adminUserId = user.GetSupabaseUserId()
                 ?? throw new UnauthorizedAccessException("Admin user ID not found");
 
             BulkApproveResponse result = await adminService.BulkApproveIssuesAsync(request, adminUserId);
@@ -202,7 +203,7 @@ public static class AdminEndpoints
             IAdminService adminService,
             ClaimsPrincipal user) =>
         {
-            var adminUserId = user.FindFirst(AuthorizationPolicies.Claims.UserId)?.Value
+            var adminUserId = user.GetSupabaseUserId()
                 ?? throw new UnauthorizedAccessException("Admin user ID not found");
 
             GetModerationStatsResponse stats = await adminService.GetModerationStatsAsync(adminUserId);

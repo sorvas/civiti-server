@@ -53,18 +53,6 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
             .HasDefaultValue(IssueStatus.Submitted)
             .HasSentinel(IssueStatus.Unspecified);
             
-        builder.Property(i => i.Priority)
-            .HasConversion<string>()
-            .HasMaxLength(20)
-            .HasDefaultValue(Priority.Medium)
-            .HasSentinel(Priority.Unspecified);
-            
-        builder.Property(i => i.AssignedDepartment)
-            .HasMaxLength(100);
-            
-        builder.Property(i => i.EstimatedResolutionTime)
-            .HasMaxLength(50);
-            
         builder.Property(i => i.ReviewedBy)
             .HasMaxLength(255);
             

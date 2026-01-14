@@ -26,12 +26,6 @@ public class AdminActionConfiguration : IEntityTypeConfiguration<AdminAction>
         builder.Property(a => a.NewStatus)
             .HasMaxLength(30);
 
-        builder.Property(a => a.AssignedDepartment)
-            .HasMaxLength(100);
-
-        builder.Property(a => a.EstimatedResolutionTime)
-            .HasMaxLength(50);
-
         // Indexes
         builder.HasIndex(a => a.IssueId);
         builder.HasIndex(a => a.AdminUserId);

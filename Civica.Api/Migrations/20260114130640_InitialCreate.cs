@@ -148,9 +148,6 @@ namespace Civica.Api.Migrations
                     AIConfidence = table.Column<decimal>(type: "numeric(3,2)", precision: 3, scale: 2, nullable: true),
                     AdminNotes = table.Column<string>(type: "text", nullable: true),
                     RejectionReason = table.Column<string>(type: "text", nullable: true),
-                    Priority = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Medium"),
-                    AssignedDepartment = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    EstimatedResolutionTime = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     PublicVisibility = table.Column<bool>(type: "boolean", nullable: false),
                     ReviewedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     ReviewedBy = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
@@ -234,8 +231,6 @@ namespace Civica.Api.Migrations
                     Notes = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     PreviousStatus = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
                     NewStatus = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
-                    AssignedDepartment = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    EstimatedResolutionTime = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -314,170 +309,77 @@ namespace Civica.Api.Migrations
                 });
 
             migrationBuilder.InsertData(
-                table: "Achievements",
-                columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), "issues_reported", new DateTime(2025, 11, 29, 14, 10, 40, 989, DateTimeKind.Utc).AddTicks(6172), "Report 10 issues", true, 10, "{\"target\": 10}", null, 200, "Community Champion" });
-
-            migrationBuilder.InsertData(
                 table: "Authorities",
-                columns: new[] { "Id", "CreatedAt", "Email", "IsActive", "Name", "County", "City", "District" },
+                columns: new[] { "Id", "City", "County", "CreatedAt", "District", "Email", "IsActive", "Name" },
                 values: new object[,]
                 {
-                    { new Guid("a0000001-0000-0000-0000-000000000001"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "pmb@pmb.ro", true, "Primăria Municipiului București", "București", "București", null },
-                    { new Guid("a0000001-0000-0000-0000-000000000002"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@primarias1.ro", true, "Primăria Sectorului 1 București", "București", "București", "Sector 1" },
-                    { new Guid("a0000001-0000-0000-0000-000000000003"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@ps2.ro", true, "Primăria Sectorului 2 București", "București", "București", "Sector 2" },
-                    { new Guid("a0000001-0000-0000-0000-000000000004"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@primarie3.ro", true, "Primăria Sectorului 3 București", "București", "București", "Sector 3" },
-                    { new Guid("a0000001-0000-0000-0000-000000000005"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@ps4.ro", true, "Primăria Sectorului 4 București", "București", "București", "Sector 4" },
-                    { new Guid("a0000001-0000-0000-0000-000000000006"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@sector5.ro", true, "Primăria Sectorului 5 București", "București", "București", "Sector 5" },
-                    { new Guid("a0000001-0000-0000-0000-000000000007"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@primarie6.ro", true, "Primăria Sectorului 6 București", "București", "București", "Sector 6" },
-                    { new Guid("a0000002-0000-0000-0000-000000000001"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@primariaclujnapoca.ro", true, "Primăria Municipiului Cluj-Napoca", "Cluj", "Cluj-Napoca", null },
-                    { new Guid("a0000002-0000-0000-0000-000000000002"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@primariatm.ro", true, "Primăria Municipiului Timișoara", "Timiș", "Timișoara", null },
-                    { new Guid("a0000002-0000-0000-0000-000000000003"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@primaria-iasi.ro", true, "Primăria Municipiului Iași", "Iași", "Iași", null },
-                    { new Guid("a0000002-0000-0000-0000-000000000004"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@primaria-constanta.ro", true, "Primăria Municipiului Constanța", "Constanța", "Constanța", null },
-                    { new Guid("a0000002-0000-0000-0000-000000000005"), new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "primarie@brasovcity.ro", true, "Primăria Municipiului Brașov", "Brașov", "Brașov", null }
+                    { new Guid("a0000001-0000-0000-0000-000000000001"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "pmb@pmb.ro", true, "Primăria Municipiului București" },
+                    { new Guid("a0000001-0000-0000-0000-000000000002"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@primarias1.ro", true, "Primăria Sectorului 1 București" },
+                    { new Guid("a0000001-0000-0000-0000-000000000003"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@ps2.ro", true, "Primăria Sectorului 2 București" },
+                    { new Guid("a0000001-0000-0000-0000-000000000004"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@primarie3.ro", true, "Primăria Sectorului 3 București" },
+                    { new Guid("a0000001-0000-0000-0000-000000000005"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@ps4.ro", true, "Primăria Sectorului 4 București" },
+                    { new Guid("a0000001-0000-0000-0000-000000000006"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@sector5.ro", true, "Primăria Sectorului 5 București" },
+                    { new Guid("a0000001-0000-0000-0000-000000000007"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@primarie6.ro", true, "Primăria Sectorului 6 București" },
+                    { new Guid("a0000002-0000-0000-0000-000000000001"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@primariaclujnapoca.ro", true, "Primăria Municipiului Cluj-Napoca" },
+                    { new Guid("a0000002-0000-0000-0000-000000000002"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@primariatm.ro", true, "Primăria Municipiului Timișoara" },
+                    { new Guid("a0000002-0000-0000-0000-000000000003"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@primaria-iasi.ro", true, "Primăria Municipiului Iași" },
+                    { new Guid("a0000002-0000-0000-0000-000000000004"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@primaria-constanta.ro", true, "Primăria Municipiului Constanța" },
+                    { new Guid("a0000002-0000-0000-0000-000000000005"), "", "", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "primarie@brasovcity.ro", true, "Primăria Municipiului Brașov" }
                 });
 
-            // === BADGES SEED DATA ===
-            var badgeSeedDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-            // Issues Reported Progression
             migrationBuilder.InsertData(
                 table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("11111111-1111-1111-1111-111111111111"), "Starter", badgeSeedDate, "Reported your first community issue", "/assets/badges/civic-starter.svg", true, "Civic Starter", "Common", "Report your first issue", "issues_reported", 1 });
+                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "RequirementDescription", "RequirementType", "RequirementValue" },
+                values: new object[] { new Guid("11111111-1111-1111-1111-111111111111"), "Starter", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Reported your first community issue", "/assets/badges/civic-starter.svg", true, "Civic Starter", "Report your first issue", "issues_reported", 1 });
 
             migrationBuilder.InsertData(
                 table: "Badges",
                 columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("11111111-1111-1111-1111-111111111112"), "Progress", badgeSeedDate, "Reported 5 community issues", "/assets/badges/active-citizen.svg", true, "Active Citizen", "Uncommon", "Report 5 issues", "issues_reported", 5 });
+                values: new object[,]
+                {
+                    { new Guid("11111111-1111-1111-1111-111111111112"), "Progress", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Reported 5 community issues", "/assets/badges/active-citizen.svg", true, "Active Citizen", "Uncommon", "Report 5 issues", "issues_reported", 5 },
+                    { new Guid("11111111-1111-1111-1111-111111111113"), "Progress", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Reported 15 community issues", "/assets/badges/community-champion.svg", true, "Community Champion", "Rare", "Report 15 issues", "issues_reported", 15 },
+                    { new Guid("11111111-1111-1111-1111-111111111114"), "Achievement", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Reported 30 community issues - a true leader!", "/assets/badges/civic-leader.svg", true, "Civic Leader", "Epic", "Report 30 issues", "issues_reported", 30 },
+                    { new Guid("22222222-2222-2222-2222-222222222222"), "Progress", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Uploaded high-quality photos with your reports", "/assets/badges/picture-perfect.svg", true, "Picture Perfect", "Uncommon", "Upload 3 issues with quality photos", "quality_photos", 3 },
+                    { new Guid("22222222-2222-2222-2222-222222222223"), "Achievement", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Documented 10 issues with quality photos", "/assets/badges/photo-journalist.svg", true, "Photo Journalist", "Rare", "Upload 10 issues with quality photos", "quality_photos", 10 }
+                });
+
+            migrationBuilder.InsertData(
+                table: "Badges",
+                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "RequirementDescription", "RequirementType", "RequirementValue" },
+                values: new object[] { new Guid("44444444-4444-4444-4444-444444444444"), "Progress", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Voted on 10 community issues", "/assets/badges/community-voice.svg", true, "Community Voice", "Vote on 10 issues", "community_votes", 10 });
 
             migrationBuilder.InsertData(
                 table: "Badges",
                 columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("11111111-1111-1111-1111-111111111113"), "Progress", badgeSeedDate, "Reported 15 community issues", "/assets/badges/community-champion.svg", true, "Community Champion", "Rare", "Report 15 issues", "issues_reported", 15 });
-
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("11111111-1111-1111-1111-111111111114"), "Achievement", badgeSeedDate, "Reported 30 community issues - a true leader!", "/assets/badges/civic-leader.svg", true, "Civic Leader", "Epic", "Report 30 issues", "issues_reported", 30 });
-
-            // Issues Resolved Progression
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("55555555-5555-5555-5555-555555555555"), "Progress", badgeSeedDate, "Had your first issue resolved", "/assets/badges/problem-solver.svg", true, "Problem Solver", "Uncommon", "1 issue resolved", "issues_resolved", 1 });
-
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("55555555-5555-5555-5555-555555555556"), "Achievement", badgeSeedDate, "Had 5 of your issues resolved", "/assets/badges/resolution-expert.svg", true, "Resolution Expert", "Rare", "5 issues resolved", "issues_resolved", 5 });
-
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("55555555-5555-5555-5555-555555555557"), "Achievement", badgeSeedDate, "Had 10 of your issues resolved - making real impact!", "/assets/badges/master-resolver.svg", true, "Master Resolver", "Epic", "10 issues resolved", "issues_resolved", 10 });
-
-            // Quality Photos Progression
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("22222222-2222-2222-2222-222222222222"), "Progress", badgeSeedDate, "Uploaded high-quality photos with your reports", "/assets/badges/picture-perfect.svg", true, "Picture Perfect", "Uncommon", "Upload 3 issues with quality photos", "quality_photos", 3 });
-
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("22222222-2222-2222-2222-222222222223"), "Achievement", badgeSeedDate, "Documented 10 issues with quality photos", "/assets/badges/photo-journalist.svg", true, "Photo Journalist", "Rare", "Upload 10 issues with quality photos", "quality_photos", 10 });
-
-            // Community Votes (for future)
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("44444444-4444-4444-4444-444444444444"), "Progress", badgeSeedDate, "Voted on 10 community issues", "/assets/badges/community-voice.svg", true, "Community Voice", "Common", "Vote on 10 issues", "community_votes", 10 });
-
-            // Login Streak Progression
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("66666666-6666-6666-6666-666666666666"), "Progress", badgeSeedDate, "Logged in 7 days in a row", "/assets/badges/dedicated-citizen.svg", true, "Dedicated Citizen", "Uncommon", "7-day login streak", "login_streak", 7 });
-
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("66666666-6666-6666-6666-666666666667"), "Achievement", badgeSeedDate, "Logged in 30 days in a row - incredible dedication!", "/assets/badges/consistency-king.svg", true, "Consistency King", "Rare", "30-day login streak", "login_streak", 30 });
-
-            // Level Progression
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("77777777-7777-7777-7777-777777777777"), "Progress", badgeSeedDate, "Reached level 5", "/assets/badges/rising-star.svg", true, "Rising Star", "Uncommon", "Reach level 5", "level", 5 });
-
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("77777777-7777-7777-7777-777777777778"), "Achievement", badgeSeedDate, "Reached level 10 - a seasoned civic advocate", "/assets/badges/veteran.svg", true, "Veteran", "Rare", "Reach level 10", "level", 10 });
-
-            migrationBuilder.InsertData(
-                table: "Badges",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "IconUrl", "IsActive", "Name", "Rarity", "RequirementDescription", "RequirementType", "RequirementValue" },
-                values: new object[] { new Guid("77777777-7777-7777-7777-777777777779"), "Special", badgeSeedDate, "Reached level 20 - a true civic legend!", "/assets/badges/legend.svg", true, "Legend", "Legendary", "Reach level 20", "level", 20 });
-
-            // === ACHIEVEMENTS SEED DATA ===
-            var achievementSeedDate = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-            // Issues Reported Achievements
-            migrationBuilder.InsertData(
-                table: "Achievements",
-                columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), "issues_reported", achievementSeedDate, "Report your first issue to start making a difference", true, 1, "{\"target\": 1}", new Guid("11111111-1111-1111-1111-111111111111"), 25, "First Steps" });
+                values: new object[,]
+                {
+                    { new Guid("55555555-5555-5555-5555-555555555555"), "Progress", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Had your first issue resolved", "/assets/badges/problem-solver.svg", true, "Problem Solver", "Uncommon", "1 issue resolved", "issues_resolved", 1 },
+                    { new Guid("55555555-5555-5555-5555-555555555556"), "Achievement", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Had 5 of your issues resolved", "/assets/badges/resolution-expert.svg", true, "Resolution Expert", "Rare", "5 issues resolved", "issues_resolved", 5 },
+                    { new Guid("55555555-5555-5555-5555-555555555557"), "Achievement", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Had 10 of your issues resolved - making real impact!", "/assets/badges/master-resolver.svg", true, "Master Resolver", "Epic", "10 issues resolved", "issues_resolved", 10 },
+                    { new Guid("66666666-6666-6666-6666-666666666666"), "Progress", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Logged in 7 days in a row", "/assets/badges/dedicated-citizen.svg", true, "Dedicated Citizen", "Uncommon", "7-day login streak", "login_streak", 7 },
+                    { new Guid("66666666-6666-6666-6666-666666666667"), "Achievement", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Logged in 30 days in a row - incredible dedication!", "/assets/badges/consistency-king.svg", true, "Consistency King", "Rare", "30-day login streak", "login_streak", 30 },
+                    { new Guid("77777777-7777-7777-7777-777777777777"), "Progress", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Reached level 5", "/assets/badges/rising-star.svg", true, "Rising Star", "Uncommon", "Reach level 5", "level", 5 },
+                    { new Guid("77777777-7777-7777-7777-777777777778"), "Achievement", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Reached level 10 - a seasoned civic advocate", "/assets/badges/veteran.svg", true, "Veteran", "Rare", "Reach level 10", "level", 10 },
+                    { new Guid("77777777-7777-7777-7777-777777777779"), "Special", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Reached level 20 - a true civic legend!", "/assets/badges/legend.svg", true, "Legend", "Legendary", "Reach level 20", "level", 20 }
+                });
 
             migrationBuilder.InsertData(
                 table: "Achievements",
                 columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab"), "issues_reported", achievementSeedDate, "Report 5 issues and become an active citizen", true, 5, "{\"target\": 5}", new Guid("11111111-1111-1111-1111-111111111112"), 75, "Getting Started" });
-
-            migrationBuilder.InsertData(
-                table: "Achievements",
-                columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac"), "issues_reported", achievementSeedDate, "Report 15 issues to become a community champion", true, 15, "{\"target\": 15}", new Guid("11111111-1111-1111-1111-111111111113"), 150, "Community Champion" });
-
-            migrationBuilder.InsertData(
-                table: "Achievements",
-                columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaad"), "issues_reported", achievementSeedDate, "Report 30 issues and become a civic leader", true, 30, "{\"target\": 30}", new Guid("11111111-1111-1111-1111-111111111114"), 300, "Civic Leadership" });
-
-            // Issues Resolved Achievements
-            migrationBuilder.InsertData(
-                table: "Achievements",
-                columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), "issues_resolved", achievementSeedDate, "Get your first issue resolved", true, 1, "{\"target\": 1}", new Guid("55555555-5555-5555-5555-555555555555"), 50, "First Resolution" });
-
-            migrationBuilder.InsertData(
-                table: "Achievements",
-                columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc"), "issues_resolved", achievementSeedDate, "Get 5 of your issues resolved", true, 5, "{\"target\": 5}", new Guid("55555555-5555-5555-5555-555555555556"), 150, "Resolution Streak" });
-
-            // Login Streak Achievements
-            migrationBuilder.InsertData(
-                table: "Achievements",
-                columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"), "login_streak", achievementSeedDate, "Log in 7 days in a row", true, 7, "{\"target\": 7}", new Guid("66666666-6666-6666-6666-666666666666"), 75, "Week Warrior" });
-
-            migrationBuilder.InsertData(
-                table: "Achievements",
-                columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("cccccccc-cccc-cccc-cccc-cccccccccccd"), "login_streak", achievementSeedDate, "Log in 30 days in a row", true, 30, "{\"target\": 30}", new Guid("66666666-6666-6666-6666-666666666667"), 200, "Monthly Dedication" });
-
-            // Quality Photos Achievement
-            migrationBuilder.InsertData(
-                table: "Achievements",
-                columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"), "quality_photos", achievementSeedDate, "Submit 3 issues with quality photos", true, 3, "{\"target\": 3}", new Guid("22222222-2222-2222-2222-222222222222"), 50, "Photography Basics" });
-
-            // Level Achievement
-            migrationBuilder.InsertData(
-                table: "Achievements",
-                columns: new[] { "Id", "AchievementType", "CreatedAt", "Description", "IsActive", "MaxProgress", "RequirementData", "RewardBadgeId", "RewardPoints", "Title" },
-                values: new object[] { new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"), "level_up", achievementSeedDate, "Reach level 5", true, 5, "{\"target\": 5}", new Guid("77777777-7777-7777-7777-777777777777"), 100, "Level Up!" });
+                values: new object[,]
+                {
+                    { new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), "issues_reported", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Report your first issue to start making a difference", true, 1, "{\"target\": 1}", new Guid("11111111-1111-1111-1111-111111111111"), 25, "First Steps" },
+                    { new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab"), "issues_reported", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Report 5 issues and become an active citizen", true, 5, "{\"target\": 5}", new Guid("11111111-1111-1111-1111-111111111112"), 75, "Getting Started" },
+                    { new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac"), "issues_reported", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Report 15 issues to become a community champion", true, 15, "{\"target\": 15}", new Guid("11111111-1111-1111-1111-111111111113"), 150, "Community Champion" },
+                    { new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaad"), "issues_reported", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Report 30 issues and become a civic leader", true, 30, "{\"target\": 30}", new Guid("11111111-1111-1111-1111-111111111114"), 300, "Civic Leadership" },
+                    { new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), "issues_resolved", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Get your first issue resolved", true, 1, "{\"target\": 1}", new Guid("55555555-5555-5555-5555-555555555555"), 50, "First Resolution" },
+                    { new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc"), "issues_resolved", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Get 5 of your issues resolved", true, 5, "{\"target\": 5}", new Guid("55555555-5555-5555-5555-555555555556"), 150, "Resolution Streak" },
+                    { new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"), "login_streak", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Log in 7 days in a row", true, 7, "{\"target\": 7}", new Guid("66666666-6666-6666-6666-666666666666"), 75, "Week Warrior" },
+                    { new Guid("cccccccc-cccc-cccc-cccc-cccccccccccd"), "login_streak", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Log in 30 days in a row", true, 30, "{\"target\": 30}", new Guid("66666666-6666-6666-6666-666666666667"), 200, "Monthly Dedication" },
+                    { new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"), "quality_photos", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Submit 3 issues with quality photos", true, 3, "{\"target\": 3}", new Guid("22222222-2222-2222-2222-222222222222"), 50, "Photography Basics" },
+                    { new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"), "level_up", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Reach level 5", true, 5, "{\"target\": 5}", new Guid("77777777-7777-7777-7777-777777777777"), 100, "Level Up!" }
+                });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Achievements_AchievementType",
@@ -617,14 +519,14 @@ namespace Civica.Api.Migrations
                 name: "IX_Issues_Status_PublicVisibility",
                 table: "Issues",
                 columns: new[] { "Status", "PublicVisibility" },
-                filter: "\"Status\" = 'Approved' AND \"PublicVisibility\" = true");
+                filter: "\"Status\" = 'Active' AND \"PublicVisibility\" = true");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Issues_Status_PublicVisibility_CreatedAt",
                 table: "Issues",
                 columns: new[] { "Status", "PublicVisibility", "CreatedAt" },
                 descending: new bool[0],
-                filter: "\"Status\" = 'Approved' AND \"PublicVisibility\" = true");
+                filter: "\"Status\" = 'Active' AND \"PublicVisibility\" = true");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Issues_Urgency",

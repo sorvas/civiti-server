@@ -14,7 +14,5 @@ public class AdminActionResponse
     public string? Notes { get; set; }
     public string? PreviousStatus { get; set; }
     public string? NewStatus { get; set; }
-    public string? AssignedDepartment { get; set; }
-    public string? EstimatedResolutionTime { get; set; }
     public DateTime CreatedAt { get; set; }
 }

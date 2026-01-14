@@ -25,7 +25,6 @@ public class AdminStatisticsResponse
     // Category breakdown
     public Dictionary<string, int> IssuesByCategory { get; set; } = new();
     public Dictionary<string, int> IssuesByUrgency { get; set; } = new();
-    public Dictionary<string, int> IssuesByPriority { get; set; } = new();
     
     // User statistics
     public int TotalUsers { get; set; }

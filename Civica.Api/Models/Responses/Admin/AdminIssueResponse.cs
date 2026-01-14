@@ -11,7 +11,6 @@ public class AdminIssueResponse
     public string Title { get; set; } = string.Empty;
     public IssueCategory Category { get; set; }
     public UrgencyLevel Urgency { get; set; }
-    public Priority Priority { get; set; }
     public IssueStatus Status { get; set; }
     public string Address { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }

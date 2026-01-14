@@ -146,7 +146,6 @@ public class DemoDataSeeder : IHostedService
                 Status = IssueStatus.Active,
                 EmailsSent = 23,
                 PublicVisibility = true,
-                Priority = Priority.High,
                 CreatedAt = now.AddDays(-5),
                 UpdatedAt = now
             },
@@ -169,7 +168,6 @@ public class DemoDataSeeder : IHostedService
                 Status = IssueStatus.Active,
                 EmailsSent = 45,
                 PublicVisibility = true,
-                Priority = Priority.Medium,
                 CreatedAt = now.AddDays(-3),
                 UpdatedAt = now
             },
@@ -192,7 +190,6 @@ public class DemoDataSeeder : IHostedService
                 Status = IssueStatus.Active,
                 EmailsSent = 67,
                 PublicVisibility = true,
-                Priority = Priority.Medium,
                 CreatedAt = now.AddDays(-7),
                 UpdatedAt = now
             },
@@ -215,7 +212,6 @@ public class DemoDataSeeder : IHostedService
                 Status = IssueStatus.Active,
                 EmailsSent = 89,
                 PublicVisibility = true,
-                Priority = Priority.Critical,
                 CreatedAt = now.AddDays(-2),
                 UpdatedAt = now
             },
@@ -238,7 +234,6 @@ public class DemoDataSeeder : IHostedService
                 Status = IssueStatus.Active,
                 EmailsSent = 34,
                 PublicVisibility = true,
-                Priority = Priority.High,
                 CreatedAt = now.AddDays(-10),
                 UpdatedAt = now
             },
@@ -261,7 +256,6 @@ public class DemoDataSeeder : IHostedService
                 Status = IssueStatus.Active,
                 EmailsSent = 28,
                 PublicVisibility = true,
-                Priority = Priority.Medium,
                 CreatedAt = now.AddDays(-14),
                 UpdatedAt = now
             },
@@ -284,7 +278,6 @@ public class DemoDataSeeder : IHostedService
                 Status = IssueStatus.Submitted,
                 EmailsSent = 0,
                 PublicVisibility = false,
-                Priority = Priority.Medium,
                 CreatedAt = now.AddDays(-1),
                 UpdatedAt = now
             },
@@ -307,7 +300,6 @@ public class DemoDataSeeder : IHostedService
                 Status = IssueStatus.Active,
                 EmailsSent = 52,
                 PublicVisibility = true,
-                Priority = Priority.High,
                 CreatedAt = now.AddDays(-6),
                 UpdatedAt = now
             },
@@ -330,7 +322,6 @@ public class DemoDataSeeder : IHostedService
                 Status = IssueStatus.Active,
                 EmailsSent = 41,
                 PublicVisibility = true,
-                Priority = Priority.Medium,
                 CreatedAt = now.AddDays(-20),
                 UpdatedAt = now
             },
@@ -353,7 +344,6 @@ public class DemoDataSeeder : IHostedService
                 Status = IssueStatus.Active,
                 EmailsSent = 156,
                 PublicVisibility = true,
-                Priority = Priority.Critical,
                 CreatedAt = now.AddDays(-30),
                 UpdatedAt = now
             }

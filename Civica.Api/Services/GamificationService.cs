@@ -68,6 +68,16 @@ public class GamificationService(
                 if (earnedBadgeIds.Contains(badge.Id))
                     continue;
 
+                // Check change tracker for badges added by nested calls (e.g., achievement rewards)
+                var existingInChangeTracker = context.ChangeTracker
+                    .Entries<UserBadge>()
+                    .Any(e => e.Entity.UserId == userId &&
+                              e.Entity.BadgeId == badge.Id &&
+                              e.State == EntityState.Added);
+
+                if (existingInChangeTracker)
+                    continue;
+
                 var earned = await CheckBadgeRequirement(user, badge);
                 if (earned)
                 {

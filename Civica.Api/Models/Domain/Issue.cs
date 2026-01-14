@@ -27,9 +27,6 @@ public class Issue
     public decimal? AIConfidence { get; set; }
     public string? AdminNotes { get; set; }
     public string? RejectionReason { get; set; }
-    public Priority Priority { get; set; } = Priority.Medium;
-    public string? AssignedDepartment { get; set; }
-    public string? EstimatedResolutionTime { get; set; }
     public bool PublicVisibility { get; set; } = true;
     public DateTime? ReviewedAt { get; set; }
     public string? ReviewedBy { get; set; }
@@ -102,19 +99,3 @@ public enum IssueStatus
     Cancelled = 7
 }
 
-/// <summary>
-/// Admin-assigned priority level
-/// </summary>
-public enum Priority
-{
-    /// <summary>Not specified</summary>
-    Unspecified = 0,
-    /// <summary>Low priority</summary>
-    Low = 1,
-    /// <summary>Medium priority</summary>
-    Medium = 2,
-    /// <summary>High priority</summary>
-    High = 3,
-    /// <summary>Critical priority</summary>
-    Critical = 4
-}

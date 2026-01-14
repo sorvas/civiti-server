@@ -154,7 +154,6 @@ public class AdminIssueResponseExample : IExamplesProvider<AdminIssueResponse>
             Title = "Iluminat stradal defect",
             Category = IssueCategory.Infrastructure,
             Urgency = UrgencyLevel.Medium,
-            Priority = Priority.High,
             Status = IssueStatus.Submitted,
             Address = "Strada Victoriei, între nr. 10-50",
             CreatedAt = DateTime.UtcNow.AddDays(-2),
@@ -375,13 +374,6 @@ public class AdminStatisticsResponseExample : IExamplesProvider<AdminStatisticsR
                 ["Medium"] = 65,
                 ["High"] = 42,
                 ["Urgent"] = 21
-            },
-            IssuesByPriority = new Dictionary<string, int>
-            {
-                ["Low"] = 35,
-                ["Normal"] = 78,
-                ["High"] = 32,
-                ["Critical"] = 11
             },
 
             // User statistics

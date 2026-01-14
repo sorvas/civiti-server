@@ -10,7 +10,6 @@ public class AdminIssueDetailResponse
     public string Description { get; set; } = string.Empty;
     public IssueCategory Category { get; set; }
     public UrgencyLevel Urgency { get; set; }
-    public Priority Priority { get; set; }
     public IssueStatus Status { get; set; }
     
     // Location details
@@ -37,8 +36,6 @@ public class AdminIssueDetailResponse
     // Admin details
     public string? AdminNotes { get; set; }
     public string? RejectionReason { get; set; }
-    public string? AssignedDepartment { get; set; }
-    public string? EstimatedResolutionTime { get; set; }
     public bool PublicVisibility { get; set; }
     
     // Review info
