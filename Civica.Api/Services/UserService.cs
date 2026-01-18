@@ -325,7 +325,10 @@ public class UserService(
         }
         catch (DbUpdateException)
         {
-            throw; // Re-throw DB exceptions as-is for callers to handle race conditions
+            // Clear the failed entity from change tracker before re-throwing
+            // so callers can safely retry with the same DbContext
+            context.ChangeTracker.Clear();
+            throw;
         }
         catch (Exception ex)
         {

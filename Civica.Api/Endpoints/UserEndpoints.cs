@@ -83,37 +83,13 @@ public static class UserEndpoints
                 return Results.BadRequest(new { error = "Email not found in token" });
             }
 
-            // Check if profile already exists
-            UserProfileResponse? existingProfile = await userService.GetUserProfileAsync(supabaseUserId);
-            if (existingProfile != null)
-            {
-                // Profile exists - update it with provided data
-                UpdateUserProfileRequest updateRequest = new()
-                {
-                    DisplayName = request.DisplayName,
-                    PhotoUrl = request.PhotoUrl,
-                    County = request.County,
-                    City = request.City,
-                    District = request.District,
-                    ResidenceType = request.ResidenceType
-                };
-                UserProfileResponse updatedProfile = await userService.UpdateUserProfileAsync(supabaseUserId, updateRequest);
-                return Results.Ok(updatedProfile);
-            }
-
-            // Profile doesn't exist - attempt to create it
             try
             {
-                UserProfileResponse profile = await userService.CreateUserProfileAsync(request, supabaseUserId, email);
-                return Results.Created($"/api/user/profile", profile);
-            }
-            catch (DbUpdateException)
-            {
-                // Handle race condition: another request may have created the profile concurrently
-                // Retry getting the profile and update it
-                UserProfileResponse? concurrentProfile = await userService.GetUserProfileAsync(supabaseUserId);
-                if (concurrentProfile != null)
+                // Check if profile already exists
+                UserProfileResponse? existingProfile = await userService.GetUserProfileAsync(supabaseUserId);
+                if (existingProfile != null)
                 {
+                    // Profile exists - update it with provided data
                     UpdateUserProfileRequest updateRequest = new()
                     {
                         DisplayName = request.DisplayName,
@@ -126,7 +102,44 @@ public static class UserEndpoints
                     UserProfileResponse updatedProfile = await userService.UpdateUserProfileAsync(supabaseUserId, updateRequest);
                     return Results.Ok(updatedProfile);
                 }
+
+                // Profile doesn't exist - attempt to create it
+                UserProfileResponse profile = await userService.CreateUserProfileAsync(request, supabaseUserId, email);
+                return Results.Created($"/api/user/profile", profile);
+            }
+            catch (DbUpdateException)
+            {
+                // Handle race condition: another request may have created the profile concurrently
+                // Retry getting the profile and update it
+                UserProfileResponse? concurrentProfile = await userService.GetUserProfileAsync(supabaseUserId);
+                if (concurrentProfile != null)
+                {
+                    try
+                    {
+                        UpdateUserProfileRequest updateRequest = new()
+                        {
+                            DisplayName = request.DisplayName,
+                            PhotoUrl = request.PhotoUrl,
+                            County = request.County,
+                            City = request.City,
+                            District = request.District,
+                            ResidenceType = request.ResidenceType
+                        };
+                        UserProfileResponse updatedProfile = await userService.UpdateUserProfileAsync(supabaseUserId, updateRequest);
+                        return Results.Ok(updatedProfile);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // Profile was deleted between get and update - very rare edge case
+                        return Results.NotFound(new { error = "User profile not found" });
+                    }
+                }
                 throw; // Re-throw if profile still doesn't exist (genuine DB error)
+            }
+            catch (InvalidOperationException)
+            {
+                // Profile was deleted between existence check and update
+                return Results.NotFound(new { error = "User profile not found" });
             }
             catch (ArgumentException ex)
             {
@@ -140,6 +153,7 @@ public static class UserEndpoints
         .Produces<UserProfileResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status404NotFound)
         .WithOpenApi();
 
         // PUT /api/user/profile
