@@ -132,16 +132,16 @@ public class UserService(
         string displayName,
         string? photoUrl)
     {
+        // Try to get existing profile first
+        UserProfileResponse? existingProfile = await GetUserProfileAsync(supabaseUserId);
+        if (existingProfile != null)
+        {
+            return existingProfile;
+        }
+
+        // Profile doesn't exist - attempt to create it
         try
         {
-            // Try to get existing profile
-            UserProfileResponse? existingProfile = await GetUserProfileAsync(supabaseUserId);
-            if (existingProfile != null)
-            {
-                return existingProfile;
-            }
-
-            // Auto-create profile with data from JWT
             logger.LogInformation("Auto-creating profile for user {SupabaseUserId}", supabaseUserId);
 
             UserProfile user = new()
@@ -169,6 +169,26 @@ public class UserService(
                 user.Id, supabaseUserId);
 
             return (await GetUserProfileAsync(supabaseUserId))!;
+        }
+        catch (DbUpdateException ex)
+        {
+            // Handle race condition: another request may have created the profile concurrently
+            // Clear the failed entity from the change tracker and retry the get
+            context.ChangeTracker.Clear();
+
+            logger.LogInformation(
+                "Profile creation conflict for {SupabaseUserId}, fetching existing profile (likely concurrent creation)",
+                supabaseUserId);
+
+            UserProfileResponse? profile = await GetUserProfileAsync(supabaseUserId);
+            if (profile != null)
+            {
+                return profile;
+            }
+
+            // If still null, it's a genuine database error
+            logger.LogError(ex, "Database error in GetOrCreateUserProfileAsync for Supabase ID: {SupabaseUserId}", supabaseUserId);
+            throw new InvalidOperationException($"Failed to get or create user profile for Supabase ID: {supabaseUserId}", ex);
         }
         catch (Exception ex)
         {
