@@ -109,6 +109,7 @@ public static class ClaimsPrincipalExtensions
 
     /// <summary>
     /// Gets the user's photo URL from user_metadata (avatar_url or picture).
+    /// Returns null if the URL is empty or whitespace.
     /// </summary>
     public static string? GetPhotoUrl(this ClaimsPrincipal user)
     {
@@ -123,13 +124,15 @@ public static class ClaimsPrincipalExtensions
                     if (metadata.RootElement.TryGetProperty("avatar_url", out var avatarUrl)
                         && avatarUrl.ValueKind == JsonValueKind.String)
                     {
-                        return avatarUrl.GetString();
+                        var value = avatarUrl.GetString();
+                        if (!string.IsNullOrWhiteSpace(value)) return value;
                     }
 
                     if (metadata.RootElement.TryGetProperty("picture", out var picture)
                         && picture.ValueKind == JsonValueKind.String)
                     {
-                        return picture.GetString();
+                        var value = picture.GetString();
+                        if (!string.IsNullOrWhiteSpace(value)) return value;
                     }
                 }
             }

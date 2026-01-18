@@ -323,6 +323,10 @@ public class UserService(
         {
             throw; // Re-throw argument exceptions as-is
         }
+        catch (DbUpdateException)
+        {
+            throw; // Re-throw DB exceptions as-is for callers to handle race conditions
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error creating user profile for Supabase ID: {SupabaseUserId}", supabaseUserId);
