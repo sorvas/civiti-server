@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Civica.Api.Migrations
 {
     [DbContext(typeof(CivicaDbContext))]
-    [Migration("20260122163117_InitialCreate")]
+    [Migration("20260122195556_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -238,8 +238,8 @@ namespace Civica.Api.Migrations
 
                     b.Property<string>("IssueTitle")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("Metadata")
                         .HasColumnType("jsonb");

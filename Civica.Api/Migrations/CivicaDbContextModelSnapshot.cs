@@ -235,8 +235,8 @@ namespace Civica.Api.Migrations
 
                     b.Property<string>("IssueTitle")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("Metadata")
                         .HasColumnType("jsonb");

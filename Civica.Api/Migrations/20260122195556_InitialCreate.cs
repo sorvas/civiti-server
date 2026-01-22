@@ -220,7 +220,7 @@ namespace Civica.Api.Migrations
                     IssueId = table.Column<Guid>(type: "uuid", nullable: false),
                     IssueOwnerUserId = table.Column<Guid>(type: "uuid", nullable: false),
                     Metadata = table.Column<string>(type: "jsonb", nullable: true),
-                    IssueTitle = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    IssueTitle = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     ActorDisplayName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     AggregatedCount = table.Column<int>(type: "integer", nullable: false, defaultValue: 1),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
