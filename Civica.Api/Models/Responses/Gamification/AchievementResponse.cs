@@ -9,6 +9,10 @@ public class AchievementResponse
     public int RewardPoints { get; set; }
     public BadgeResponse? RewardBadge { get; set; }
     public string AchievementType { get; set; } = string.Empty;
+
+    // Romanian localization
+    public string TitleRo { get; set; } = string.Empty;
+    public string DescriptionRo { get; set; } = string.Empty;
 }
 
 public class AchievementProgressResponse
@@ -22,4 +26,8 @@ public class AchievementProgressResponse
     public bool Completed { get; set; }
     public DateTime? CompletedAt { get; set; }
     public decimal PercentageComplete { get; set; }
+
+    // Romanian localization
+    public string TitleRo { get; set; } = string.Empty;
+    public string DescriptionRo { get; set; } = string.Empty;
 }

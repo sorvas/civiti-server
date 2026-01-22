@@ -2,6 +2,7 @@ using Civica.Api.Services.Interfaces;
 using Civica.Api.Models.Responses.Gamification;
 using Civica.Api.Models.Domain;
 using Civica.Api.Data;
+using Civica.Api.Infrastructure.Localization;
 using Microsoft.EntityFrameworkCore;
 
 namespace Civica.Api.Services;
@@ -286,23 +287,40 @@ public class GamificationService(
     {
         try
         {
-            List<BadgeResponse> userBadges = await context.UserBadges
+            var userBadgesRaw = await context.UserBadges
                 .Include(ub => ub.Badge)
                 .Where(ub => ub.UserId == userId)
                 .OrderByDescending(ub => ub.EarnedAt)
-                .Select(ub => new BadgeResponse
+                .Select(ub => new
                 {
-                    Id = ub.Badge.Id,
-                    Name = ub.Badge.Name,
-                    Description = ub.Badge.Description,
-                    IconUrl = ub.Badge.IconUrl,
-                    Category = ub.Badge.Category.ToString(),
-                    Rarity = ub.Badge.Rarity.ToString(),
-                    RequirementDescription = ub.Badge.RequirementDescription,
-                    EarnedAt = ub.EarnedAt,
-                    IsEarned = true
+                    ub.Badge.Id,
+                    ub.Badge.Name,
+                    ub.Badge.Description,
+                    ub.Badge.IconUrl,
+                    ub.Badge.Category,
+                    ub.Badge.Rarity,
+                    ub.Badge.RequirementDescription,
+                    ub.EarnedAt
                 })
                 .ToListAsync();
+
+            List<BadgeResponse> userBadges = userBadgesRaw.Select(ub => new BadgeResponse
+            {
+                Id = ub.Id,
+                Name = ub.Name,
+                Description = ub.Description,
+                IconUrl = ub.IconUrl,
+                Category = ub.Category.ToString(),
+                Rarity = ub.Rarity.ToString(),
+                RequirementDescription = ub.RequirementDescription,
+                EarnedAt = ub.EarnedAt,
+                IsEarned = true,
+                NameRo = BadgeLocalization.GetNameRo(ub.Name),
+                DescriptionRo = BadgeLocalization.GetDescriptionRo(ub.Description),
+                CategoryRo = BadgeLocalization.GetCategoryRo(ub.Category),
+                RarityRo = BadgeLocalization.GetRarityRo(ub.Rarity),
+                RequirementDescriptionRo = BadgeLocalization.GetRequirementDescriptionRo(ub.RequirementDescription)
+            }).ToList();
 
             return userBadges;
         }
@@ -321,24 +339,38 @@ public class GamificationService(
                 .Include(ua => ua.Achievement)
                 .Where(ua => ua.UserId == userId);
 
-            List<AchievementProgressResponse> userAchievements = await achievementsQuery
+            var achievementsRaw = await achievementsQuery
                 .OrderBy(ua => ua.Completed)
                 .ThenByDescending(ua => ua.Progress)
-                .Select(ua => new AchievementProgressResponse
+                .Select(ua => new
                 {
-                    Id = ua.Achievement.Id,
-                    Title = ua.Achievement.Title,
-                    Description = ua.Achievement.Description,
-                    Progress = ua.Progress,
-                    MaxProgress = ua.Achievement.MaxProgress,
-                    RewardPoints = ua.Achievement.RewardPoints,
-                    Completed = ua.Completed,
-                    CompletedAt = ua.CompletedAt,
-                    PercentageComplete = ua.Achievement.MaxProgress > 0
-                        ? Math.Round((decimal)ua.Progress / ua.Achievement.MaxProgress * 100, 2)
-                        : 0
+                    ua.Achievement.Id,
+                    ua.Achievement.Title,
+                    ua.Achievement.Description,
+                    ua.Progress,
+                    ua.Achievement.MaxProgress,
+                    ua.Achievement.RewardPoints,
+                    ua.Completed,
+                    ua.CompletedAt
                 })
                 .ToListAsync();
+
+            List<AchievementProgressResponse> userAchievements = achievementsRaw.Select(ua => new AchievementProgressResponse
+            {
+                Id = ua.Id,
+                Title = ua.Title,
+                Description = ua.Description,
+                Progress = ua.Progress,
+                MaxProgress = ua.MaxProgress,
+                RewardPoints = ua.RewardPoints,
+                Completed = ua.Completed,
+                CompletedAt = ua.CompletedAt,
+                PercentageComplete = ua.MaxProgress > 0
+                    ? Math.Round((decimal)ua.Progress / ua.MaxProgress * 100, 2)
+                    : 0,
+                TitleRo = AchievementLocalization.GetTitleRo(ua.Title),
+                DescriptionRo = AchievementLocalization.GetDescriptionRo(ua.Description)
+            }).ToList();
 
             return userAchievements;
         }
@@ -358,23 +390,39 @@ public class GamificationService(
                 .Select(ub => ub.BadgeId)
                 .ToListAsync();
 
-            List<BadgeResponse> badges = await context.Badges
+            var badgesRaw = await context.Badges
                 .Where(b => b.IsActive)
                 .OrderBy(b => b.Category)
                 .ThenBy(b => b.Rarity)
-                .Select(b => new BadgeResponse
+                .Select(b => new
                 {
-                    Id = b.Id,
-                    Name = b.Name,
-                    Description = b.Description,
-                    IconUrl = b.IconUrl,
-                    Category = b.Category.ToString(),
-                    Rarity = b.Rarity.ToString(),
-                    RequirementDescription = b.RequirementDescription,
-                    IsEarned = earnedBadgeIds.Contains(b.Id),
-                    EarnedAt = null
+                    b.Id,
+                    b.Name,
+                    b.Description,
+                    b.IconUrl,
+                    b.Category,
+                    b.Rarity,
+                    b.RequirementDescription
                 })
                 .ToListAsync();
+
+            List<BadgeResponse> badges = badgesRaw.Select(b => new BadgeResponse
+            {
+                Id = b.Id,
+                Name = b.Name,
+                Description = b.Description,
+                IconUrl = b.IconUrl,
+                Category = b.Category.ToString(),
+                Rarity = b.Rarity.ToString(),
+                RequirementDescription = b.RequirementDescription,
+                IsEarned = earnedBadgeIds.Contains(b.Id),
+                EarnedAt = null,
+                NameRo = BadgeLocalization.GetNameRo(b.Name),
+                DescriptionRo = BadgeLocalization.GetDescriptionRo(b.Description),
+                CategoryRo = BadgeLocalization.GetCategoryRo(b.Category),
+                RarityRo = BadgeLocalization.GetRarityRo(b.Rarity),
+                RequirementDescriptionRo = BadgeLocalization.GetRequirementDescriptionRo(b.RequirementDescription)
+            }).ToList();
 
             // Get earned dates for earned badges
             Dictionary<Guid, DateTime> earnedBadges = await context.UserBadges
@@ -402,23 +450,39 @@ public class GamificationService(
     {
         try
         {
-            List<BadgeResponse> badges = await context.Badges
+            var badgesRaw = await context.Badges
                 .Where(b => b.IsActive)
                 .OrderBy(b => b.Category)
                 .ThenBy(b => b.Rarity)
-                .Select(b => new BadgeResponse
+                .Select(b => new
                 {
-                    Id = b.Id,
-                    Name = b.Name,
-                    Description = b.Description,
-                    IconUrl = b.IconUrl,
-                    Category = b.Category.ToString(),
-                    Rarity = b.Rarity.ToString(),
-                    RequirementDescription = b.RequirementDescription,
-                    IsEarned = false,
-                    EarnedAt = null
+                    b.Id,
+                    b.Name,
+                    b.Description,
+                    b.IconUrl,
+                    b.Category,
+                    b.Rarity,
+                    b.RequirementDescription
                 })
                 .ToListAsync();
+
+            List<BadgeResponse> badges = badgesRaw.Select(b => new BadgeResponse
+            {
+                Id = b.Id,
+                Name = b.Name,
+                Description = b.Description,
+                IconUrl = b.IconUrl,
+                Category = b.Category.ToString(),
+                Rarity = b.Rarity.ToString(),
+                RequirementDescription = b.RequirementDescription,
+                IsEarned = false,
+                EarnedAt = null,
+                NameRo = BadgeLocalization.GetNameRo(b.Name),
+                DescriptionRo = BadgeLocalization.GetDescriptionRo(b.Description),
+                CategoryRo = BadgeLocalization.GetCategoryRo(b.Category),
+                RarityRo = BadgeLocalization.GetRarityRo(b.Rarity),
+                RequirementDescriptionRo = BadgeLocalization.GetRequirementDescriptionRo(b.RequirementDescription)
+            }).ToList();
 
             return badges;
         }
@@ -433,35 +497,64 @@ public class GamificationService(
     {
         try
         {
-            List<AchievementResponse> achievements = await context.Achievements
+            var achievementsRaw = await context.Achievements
                 .Include(a => a.RewardBadge)
                 .Where(a => a.IsActive)
                 .OrderBy(a => a.AchievementType)
                 .ThenBy(a => a.MaxProgress)
-                .Select(a => new AchievementResponse
+                .Select(a => new
                 {
-                    Id = a.Id,
-                    Title = a.Title,
-                    Description = a.Description,
-                    MaxProgress = a.MaxProgress,
-                    RewardPoints = a.RewardPoints,
+                    a.Id,
+                    a.Title,
+                    a.Description,
+                    a.MaxProgress,
+                    a.RewardPoints,
+                    a.AchievementType,
                     RewardBadge = a.RewardBadge != null
-                        ? new BadgeResponse
+                        ? new
                         {
-                            Id = a.RewardBadge.Id,
-                            Name = a.RewardBadge.Name,
+                            a.RewardBadge.Id,
+                            a.RewardBadge.Name,
                             Description = a.RewardBadge.Description,
-                            IconUrl = a.RewardBadge.IconUrl,
-                            Category = a.RewardBadge.Category.ToString(),
-                            Rarity = a.RewardBadge.Rarity.ToString(),
-                            RequirementDescription = a.RewardBadge.RequirementDescription,
-                            IsEarned = false,
-                            EarnedAt = null
+                            a.RewardBadge.IconUrl,
+                            a.RewardBadge.Category,
+                            a.RewardBadge.Rarity,
+                            a.RewardBadge.RequirementDescription
                         }
-                        : null,
-                    AchievementType = a.AchievementType
+                        : null
                 })
                 .ToListAsync();
+
+            List<AchievementResponse> achievements = achievementsRaw.Select(a => new AchievementResponse
+            {
+                Id = a.Id,
+                Title = a.Title,
+                Description = a.Description,
+                MaxProgress = a.MaxProgress,
+                RewardPoints = a.RewardPoints,
+                AchievementType = a.AchievementType,
+                TitleRo = AchievementLocalization.GetTitleRo(a.Title),
+                DescriptionRo = AchievementLocalization.GetDescriptionRo(a.Description),
+                RewardBadge = a.RewardBadge != null
+                    ? new BadgeResponse
+                    {
+                        Id = a.RewardBadge.Id,
+                        Name = a.RewardBadge.Name,
+                        Description = a.RewardBadge.Description,
+                        IconUrl = a.RewardBadge.IconUrl,
+                        Category = a.RewardBadge.Category.ToString(),
+                        Rarity = a.RewardBadge.Rarity.ToString(),
+                        RequirementDescription = a.RewardBadge.RequirementDescription,
+                        IsEarned = false,
+                        EarnedAt = null,
+                        NameRo = BadgeLocalization.GetNameRo(a.RewardBadge.Name),
+                        DescriptionRo = BadgeLocalization.GetDescriptionRo(a.RewardBadge.Description),
+                        CategoryRo = BadgeLocalization.GetCategoryRo(a.RewardBadge.Category),
+                        RarityRo = BadgeLocalization.GetRarityRo(a.RewardBadge.Rarity),
+                        RequirementDescriptionRo = BadgeLocalization.GetRequirementDescriptionRo(a.RewardBadge.RequirementDescription)
+                    }
+                    : null
+            }).ToList();
 
             return achievements;
         }
