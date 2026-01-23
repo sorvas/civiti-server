@@ -176,13 +176,20 @@ public class CommentService(
                 }
             }
 
+            // Validate content after trimming
+            var trimmedContent = request.Content.Trim();
+            if (string.IsNullOrEmpty(trimmedContent))
+            {
+                throw new InvalidOperationException("Comment content cannot be empty or whitespace only");
+            }
+
             // Create comment
             var comment = new Comment
             {
                 Id = Guid.NewGuid(),
                 IssueId = issueId,
                 UserId = user.Id,
-                Content = request.Content.Trim(),
+                Content = trimmedContent,
                 ParentCommentId = request.ParentCommentId,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -248,7 +255,14 @@ public class CommentService(
                 return (false, "You can only edit your own comments");
             }
 
-            comment.Content = request.Content.Trim();
+            // Validate content after trimming
+            var trimmedContent = request.Content.Trim();
+            if (string.IsNullOrEmpty(trimmedContent))
+            {
+                return (false, "Comment content cannot be empty or whitespace only");
+            }
+
+            comment.Content = trimmedContent;
             comment.IsEdited = true;
             comment.UpdatedAt = DateTime.UtcNow;
 
@@ -363,14 +377,19 @@ public class CommentService(
 
             context.CommentVotes.Add(vote);
 
-            // Update comment helpful count
-            comment.HelpfulCount++;
-
-            // Update comment author's helpful comments stat
-            comment.User.HelpfulComments++;
-            comment.User.UpdatedAt = DateTime.UtcNow;
-
+            // Save the vote first to let the unique constraint catch duplicates
             await context.SaveChangesAsync();
+
+            // Use atomic database operations to prevent race conditions on helpful counts
+            await context.Comments
+                .Where(c => c.Id == commentId)
+                .ExecuteUpdateAsync(c => c.SetProperty(x => x.HelpfulCount, x => x.HelpfulCount + 1));
+
+            await context.UserProfiles
+                .Where(u => u.Id == comment.UserId)
+                .ExecuteUpdateAsync(u => u
+                    .SetProperty(x => x.HelpfulComments, x => x.HelpfulComments + 1)
+                    .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
 
             // Award points to comment author
             await gamificationService.AwardPointsAsync(
@@ -426,18 +445,24 @@ public class CommentService(
             }
 
             context.CommentVotes.Remove(vote);
-
-            // Update comment helpful count
-            comment.HelpfulCount = Math.Max(0, comment.HelpfulCount - 1);
-
-            // Update comment author's helpful comments stat
-            comment.User.HelpfulComments = Math.Max(0, comment.User.HelpfulComments - 1);
-
-            // Deduct points from comment author (ensure points don't go negative)
-            comment.User.Points = Math.Max(0, comment.User.Points - PointsForHelpfulVote);
-            comment.User.UpdatedAt = DateTime.UtcNow;
-
             await context.SaveChangesAsync();
+
+            // Use atomic database operations to prevent race conditions on helpful counts
+            await context.Comments
+                .Where(c => c.Id == commentId)
+                .ExecuteUpdateAsync(c => c.SetProperty(x => x.HelpfulCount, x => Math.Max(0, x.HelpfulCount - 1)));
+
+            await context.UserProfiles
+                .Where(u => u.Id == comment.UserId)
+                .ExecuteUpdateAsync(u => u
+                    .SetProperty(x => x.HelpfulComments, x => Math.Max(0, x.HelpfulComments - 1))
+                    .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
+
+            // Deduct points using gamification service (handles level recalculation)
+            await gamificationService.DeductPointsAsync(
+                comment.UserId,
+                PointsForHelpfulVote,
+                "helpful_vote_removed");
 
             logger.LogInformation(
                 "User {UserId} removed vote from comment {CommentId}, deducted {Points} points from author {AuthorId}",

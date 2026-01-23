@@ -18,7 +18,7 @@ public static class CommentEndpoints
     public static void MapCommentEndpoints(this WebApplication app)
     {
         // Issue comments group
-        var issueCommentsGroup = app.MapGroup("/api/issues/{issueId:guid}/comments")
+        var issueCommentsGroup = app.MapGroup(ApiRoutes.Comments.IssueComments)
             .WithTags("Comments")
             .WithOpenApi();
 
@@ -108,7 +108,7 @@ public static class CommentEndpoints
         .WithOpenApi();
 
         // GET /api/comments/{id} - Get a single comment
-        commentsGroup.MapGet("/{id:guid}", async (
+        commentsGroup.MapGet(ApiRoutes.Comments.ById, async (
             Guid id,
             HttpContext context,
             ICommentService commentService,
@@ -139,7 +139,7 @@ public static class CommentEndpoints
         .WithOpenApi();
 
         // PUT /api/comments/{id} - Update own comment
-        commentsGroup.MapPut("/{id:guid}", async (
+        commentsGroup.MapPut(ApiRoutes.Comments.ById, async (
             Guid id,
             UpdateCommentRequest request,
             HttpContext context,
@@ -172,7 +172,7 @@ public static class CommentEndpoints
         .WithOpenApi();
 
         // DELETE /api/comments/{id} - Delete comment (owner or admin)
-        commentsGroup.MapDelete("/{id:guid}", async (
+        commentsGroup.MapDelete(ApiRoutes.Comments.ById, async (
             Guid id,
             HttpContext context,
             ICommentService commentService) =>
@@ -206,7 +206,7 @@ public static class CommentEndpoints
         .WithOpenApi();
 
         // POST /api/comments/{id}/vote - Vote comment as helpful
-        commentsGroup.MapPost("/{id:guid}/vote", async (
+        commentsGroup.MapPost(ApiRoutes.Comments.Vote, async (
             Guid id,
             HttpContext context,
             ICommentService commentService) =>
@@ -238,7 +238,7 @@ public static class CommentEndpoints
         .WithOpenApi();
 
         // DELETE /api/comments/{id}/vote - Remove helpful vote
-        commentsGroup.MapDelete("/{id:guid}/vote", async (
+        commentsGroup.MapDelete(ApiRoutes.Comments.Vote, async (
             Guid id,
             HttpContext context,
             ICommentService commentService) =>
