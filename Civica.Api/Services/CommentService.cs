@@ -312,7 +312,26 @@ public class CommentService(
                 return (false, "You can only delete your own comments");
             }
 
-            // Adjust helpful vote stats if comment had votes
+            // Atomically soft-delete the comment with optimistic concurrency
+            // This prevents double stat deduction if concurrent deletes occur
+            var rowsAffected = await context.Comments
+                .Where(c => c.Id == commentId && !c.IsDeleted)
+                .ExecuteUpdateAsync(c => c
+                    .SetProperty(x => x.IsDeleted, true)
+                    .SetProperty(x => x.DeletedByUserId, user.Id)
+                    .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
+
+            // If no rows affected, another request already deleted this comment
+            if (rowsAffected == 0)
+            {
+                logger.LogInformation(
+                    "Comment {CommentId} was already deleted by a concurrent request",
+                    commentId);
+                await transaction.RollbackAsync();
+                return (true, null); // Return success - delete is idempotent
+            }
+
+            // Now safely adjust helpful vote stats (only one request reaches here)
             if (comment.HelpfulCount > 0)
             {
                 // Deduct HelpfulComments stat from comment author
@@ -334,58 +353,66 @@ public class CommentService(
                     pointsToDeduct, comment.HelpfulCount, comment.UserId);
             }
 
-            // Soft delete the comment
-            comment.IsDeleted = true;
-            comment.DeletedByUserId = user.Id;
-            comment.UpdatedAt = DateTime.UtcNow;
+            // Recursively find all descendants (replies, nested replies, etc.)
+            var allDescendants = new List<(Guid Id, Guid UserId, int HelpfulCount)>();
+            var parentIds = new List<Guid> { commentId };
 
-            // Get replies that will be cascade-deleted and have helpful votes
-            var repliesToDelete = await context.Comments
-                .Where(c => c.ParentCommentId == commentId && !c.IsDeleted)
-                .Select(c => new { c.Id, c.UserId, c.HelpfulCount })
-                .ToListAsync();
-
-            if (repliesToDelete.Count > 0)
+            while (parentIds.Count > 0)
             {
-                // Clean up helpful vote stats for each reply author
-                var replyStatsByUser = repliesToDelete
+                var children = await context.Comments
+                    .Where(c => parentIds.Contains(c.ParentCommentId!.Value) && !c.IsDeleted)
+                    .Select(c => new { c.Id, c.UserId, c.HelpfulCount })
+                    .ToListAsync();
+
+                if (children.Count == 0)
+                    break;
+
+                allDescendants.AddRange(children.Select(c => (c.Id, c.UserId, c.HelpfulCount)));
+                parentIds = children.Select(c => c.Id).ToList();
+            }
+
+            if (allDescendants.Count > 0)
+            {
+                // Clean up helpful vote stats for each descendant author
+                var descendantStatsByUser = allDescendants
                     .Where(r => r.HelpfulCount > 0)
                     .GroupBy(r => r.UserId)
                     .Select(g => new { UserId = g.Key, TotalHelpfulCount = g.Sum(r => r.HelpfulCount) })
                     .ToList();
 
-                foreach (var replyStat in replyStatsByUser)
+                foreach (var descendantStat in descendantStatsByUser)
                 {
-                    // Deduct HelpfulComments stat from reply author
+                    // Deduct HelpfulComments stat from descendant author
                     await context.UserProfiles
-                        .Where(u => u.Id == replyStat.UserId)
+                        .Where(u => u.Id == descendantStat.UserId)
                         .ExecuteUpdateAsync(u => u
-                            .SetProperty(x => x.HelpfulComments, x => Math.Max(0, x.HelpfulComments - replyStat.TotalHelpfulCount))
+                            .SetProperty(x => x.HelpfulComments, x => Math.Max(0, x.HelpfulComments - descendantStat.TotalHelpfulCount))
                             .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
 
-                    // Deduct points for each helpful vote received on replies
-                    var pointsToDeduct = replyStat.TotalHelpfulCount * PointsForHelpfulVote;
+                    // Deduct points for each helpful vote received on descendants
+                    var pointsToDeduct = descendantStat.TotalHelpfulCount * PointsForHelpfulVote;
                     await gamificationService.DeductPointsAsync(
-                        replyStat.UserId,
+                        descendantStat.UserId,
                         pointsToDeduct,
                         "reply_cascade_deleted_votes_removed");
 
                     logger.LogInformation(
                         "Deducted {Points} points and {VoteCount} helpful comments from user {UserId} due to reply cascade deletion",
-                        pointsToDeduct, replyStat.TotalHelpfulCount, replyStat.UserId);
+                        pointsToDeduct, descendantStat.TotalHelpfulCount, descendantStat.UserId);
                 }
 
-                // Soft-delete all replies
+                // Soft-delete all descendants (with !IsDeleted check for concurrent safety)
+                var descendantIds = allDescendants.Select(d => d.Id).ToList();
                 await context.Comments
-                    .Where(c => c.ParentCommentId == commentId && !c.IsDeleted)
+                    .Where(c => descendantIds.Contains(c.Id) && !c.IsDeleted)
                     .ExecuteUpdateAsync(c => c
                         .SetProperty(x => x.IsDeleted, true)
                         .SetProperty(x => x.DeletedByUserId, user.Id)
                         .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
 
                 logger.LogInformation(
-                    "Soft-deleted {ReplyCount} replies along with parent comment {CommentId}",
-                    repliesToDelete.Count, commentId);
+                    "Soft-deleted {DescendantCount} descendants (replies and nested replies) along with parent comment {CommentId}",
+                    allDescendants.Count, commentId);
             }
 
             await context.SaveChangesAsync();
