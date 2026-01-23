@@ -192,9 +192,12 @@ public static class CommentEndpoints
             var (success, error) = await commentService.DeleteCommentAsync(id, supabaseUserId, isAdmin);
             if (!success)
             {
-                return error == "Comment not found"
-                    ? Results.NotFound(new { error })
-                    : Results.Forbid();
+                return error switch
+                {
+                    "Comment not found" => Results.NotFound(new { error }),
+                    "You can only delete your own comments" => Results.Forbid(),
+                    _ => Results.BadRequest(new { error })
+                };
             }
 
             return Results.NoContent();

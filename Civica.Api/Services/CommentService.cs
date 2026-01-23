@@ -286,6 +286,7 @@ public class CommentService(
         string supabaseUserId,
         bool isAdmin)
     {
+        await using var transaction = await context.Database.BeginTransactionAsync();
         try
         {
             var user = await context.UserProfiles
@@ -297,6 +298,7 @@ public class CommentService(
             }
 
             var comment = await context.Comments
+                .Include(c => c.User)
                 .FirstOrDefaultAsync(c => c.Id == commentId && !c.IsDeleted);
 
             if (comment == null)
@@ -310,12 +312,50 @@ public class CommentService(
                 return (false, "You can only delete your own comments");
             }
 
-            // Soft delete
+            // Adjust helpful vote stats if comment had votes
+            if (comment.HelpfulCount > 0)
+            {
+                // Deduct HelpfulComments stat from comment author
+                await context.UserProfiles
+                    .Where(u => u.Id == comment.UserId)
+                    .ExecuteUpdateAsync(u => u
+                        .SetProperty(x => x.HelpfulComments, x => Math.Max(0, x.HelpfulComments - comment.HelpfulCount))
+                        .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
+
+                // Deduct points for each helpful vote received
+                var pointsToDeduct = comment.HelpfulCount * PointsForHelpfulVote;
+                await gamificationService.DeductPointsAsync(
+                    comment.UserId,
+                    pointsToDeduct,
+                    "comment_deleted_votes_removed");
+
+                logger.LogInformation(
+                    "Deducted {Points} points and {VoteCount} helpful comments from user {UserId} due to comment deletion",
+                    pointsToDeduct, comment.HelpfulCount, comment.UserId);
+            }
+
+            // Soft delete the comment
             comment.IsDeleted = true;
             comment.DeletedByUserId = user.Id;
             comment.UpdatedAt = DateTime.UtcNow;
 
+            // Also soft-delete any replies to prevent orphaned comments
+            var replyCount = await context.Comments
+                .Where(c => c.ParentCommentId == commentId && !c.IsDeleted)
+                .ExecuteUpdateAsync(c => c
+                    .SetProperty(x => x.IsDeleted, true)
+                    .SetProperty(x => x.DeletedByUserId, user.Id)
+                    .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
+
+            if (replyCount > 0)
+            {
+                logger.LogInformation(
+                    "Soft-deleted {ReplyCount} replies along with parent comment {CommentId}",
+                    replyCount, commentId);
+            }
+
             await context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             logger.LogInformation(
                 "Comment {CommentId} deleted by user {UserId} (admin: {IsAdmin})",
@@ -325,6 +365,7 @@ public class CommentService(
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             logger.LogError(ex, "Error deleting comment: {CommentId}", commentId);
             throw;
         }
