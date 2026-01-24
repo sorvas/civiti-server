@@ -211,5 +211,29 @@ public static class IssueEndpoints
         .Produces(401)
         .Produces(429)
         .WithOpenApi();
+
+        // GET /api/issues/{id}/poster
+        group.MapGet(ApiRoutes.Issues.Poster, async Task<Results<FileContentHttpResult, NotFound>> (
+            IPosterService posterService,
+            Guid id) =>
+        {
+            var result = await posterService.GeneratePosterAsync(id);
+
+            if (result == null)
+            {
+                return TypedResults.NotFound();
+            }
+
+            return TypedResults.File(
+                result.Value.PdfBytes,
+                contentType: "application/pdf",
+                fileDownloadName: result.Value.FileName);
+        })
+        .WithName("GenerateIssuePoster")
+        .WithSummary("Generate printable PDF poster with QR code")
+        .WithDescription("Generates a printable A4 PDF poster featuring a QR code that links to the specified civic issue. The poster includes the Civica branding, a large QR code, a Romanian call-to-action, and the issue title. Only available for publicly visible, active issues. No authentication required.")
+        .Produces(200, contentType: "application/pdf")
+        .Produces(404)
+        .WithOpenApi();
     }
 }

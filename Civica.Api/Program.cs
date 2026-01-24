@@ -339,6 +339,16 @@ else
     Log.Warning("OpenAI API key is not configured. Content moderation will be skipped.");
 }
 
+// Poster Configuration
+var posterConfig = new PosterConfiguration
+{
+    FrontendBaseUrl = GetEnvOrConfig("POSTER_FRONTEND_BASE_URL", "Poster:FrontendBaseUrl") ?? "http://localhost:4200",
+    QrSizePixels = GetEnvOrConfigInt("POSTER_QR_SIZE_PIXELS", "Poster:QrSizePixels", 300),
+    CacheDurationMinutes = GetEnvOrConfigInt("POSTER_CACHE_DURATION_MINUTES", "Poster:CacheDurationMinutes", 15)
+};
+builder.Services.AddSingleton(posterConfig);
+Log.Information("Poster generation configured with frontend URL: {FrontendBaseUrl}", posterConfig.FrontendBaseUrl);
+
 string? GetEnvOrConfig(string envVar, string configKey)
 {
     var value = Environment.GetEnvironmentVariable(envVar);
@@ -367,6 +377,7 @@ builder.Services.AddScoped<IClaudeEnhancementService, ClaudeEnhancementService>(
 builder.Services.AddScoped<IActivityService, ActivityService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IContentModerationService, OpenAIModerationService>();
+builder.Services.AddScoped<IPosterService, PosterService>();
 
 // Validators
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();

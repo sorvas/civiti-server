@@ -17,6 +17,7 @@ public static class ApiRoutes
         public const string ById = "/{id:guid}";
         public const string EmailSent = "/{id:guid}/email-sent";
         public const string EnhanceText = "/enhance-text";
+        public const string Poster = "/{id:guid}/poster";
     }
     
     public static class User
