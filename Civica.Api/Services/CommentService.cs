@@ -597,11 +597,11 @@ public class CommentService(
                 return (false, "You cannot vote on your own comment");
             }
 
-            // Check if already voted
-            var existingVote = await context.CommentVotes
-                .FirstOrDefaultAsync(v => v.CommentId == commentId && v.UserId == user.Id);
+            // Check if already voted (for user-friendly error message)
+            var alreadyVoted = await context.CommentVotes
+                .AnyAsync(v => v.CommentId == commentId && v.UserId == user.Id);
 
-            if (existingVote != null)
+            if (alreadyVoted)
             {
                 return (false, "You have already voted on this comment");
             }
@@ -609,14 +609,28 @@ public class CommentService(
             // Use execution strategy to wrap the transaction
             var strategy = context.Database.CreateExecutionStrategy();
 
-            await strategy.ExecuteAsync(async () =>
+            // Generate ID before retry block for idempotency - if retry occurs after commit,
+            // we can detect our already-created vote by this ID
+            var voteId = Guid.NewGuid();
+
+            var votedByThisRequest = await strategy.ExecuteAsync(async () =>
             {
+                // Check if this vote was already created in a previous retry attempt
+                var existingVote = await context.CommentVotes
+                    .FirstOrDefaultAsync(v => v.Id == voteId);
+
+                if (existingVote != null)
+                {
+                    // Vote was created on a previous attempt - treat as success
+                    return true;
+                }
+
                 await using var transaction = await context.Database.BeginTransactionAsync();
 
                 // Create vote
                 var vote = new CommentVote
                 {
-                    Id = Guid.NewGuid(),
+                    Id = voteId,
                     CommentId = commentId,
                     UserId = user.Id,
                     CreatedAt = DateTime.UtcNow
@@ -645,11 +659,15 @@ public class CommentService(
                     "helpful_vote_received");
 
                 await transaction.CommitAsync();
+                return true;
             });
 
-            logger.LogInformation(
-                "User {UserId} voted comment {CommentId} as helpful",
-                user.Id, commentId);
+            if (votedByThisRequest)
+            {
+                logger.LogInformation(
+                    "User {UserId} voted comment {CommentId} as helpful",
+                    user.Id, commentId);
+            }
 
             return (true, null);
         }
