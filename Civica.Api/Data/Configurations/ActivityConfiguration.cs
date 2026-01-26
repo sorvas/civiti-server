@@ -10,9 +10,7 @@ public class ActivityConfiguration : IEntityTypeConfiguration<Activity>
     {
         builder.HasKey(a => a.Id);
 
-        builder.Property(a => a.Type)
-            .HasConversion<string>()
-            .HasMaxLength(30);
+        // Type (ActivityType enum) stored as integer by EF Core default
 
         builder.Property(a => a.IssueTitle)
             .HasMaxLength(500) // Aligned with Issue.Title max length

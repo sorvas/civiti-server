@@ -24,14 +24,7 @@ public class BadgeConfiguration : IEntityTypeConfiguration<Badge>
         builder.Property(b => b.IconUrl)
             .HasMaxLength(500);
             
-        builder.Property(b => b.Category)
-            .HasConversion<string>()
-            .HasMaxLength(30);
-            
-        builder.Property(b => b.Rarity)
-            .HasConversion<string>()
-            .HasMaxLength(20)
-            .HasDefaultValue(BadgeRarity.Common);
+        // Enums (Category, Rarity) stored as integers by EF Core default
             
         builder.Property(b => b.RequirementType)
             .HasMaxLength(50);

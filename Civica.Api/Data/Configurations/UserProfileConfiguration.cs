@@ -45,9 +45,7 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
             .HasMaxLength(100)
             .HasDefaultValue("Sector 5");
             
-        builder.Property(u => u.ResidenceType)
-            .HasConversion<string>()
-            .HasMaxLength(20);
+        // ResidenceType enum stored as integer by EF Core default
             
         builder.Property(u => u.Points)
             .HasDefaultValue(0);

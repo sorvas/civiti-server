@@ -18,10 +18,6 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
             .IsRequired()
             .HasMaxLength(5000);
             
-        builder.Property(i => i.Category)
-            .HasConversion<string>()
-            .HasMaxLength(50);
-            
         builder.Property(i => i.Address)
             .IsRequired()
             .HasMaxLength(500);
@@ -29,17 +25,7 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
         builder.Property(i => i.District)
             .HasMaxLength(100);
 
-        builder.Property(i => i.Urgency)
-            .HasConversion<string>()
-            .HasMaxLength(20)
-            .HasDefaultValue(UrgencyLevel.Medium)
-            .HasSentinel(UrgencyLevel.Unspecified);
-            
-        builder.Property(i => i.Status)
-            .HasConversion<string>()
-            .HasMaxLength(30)
-            .HasDefaultValue(IssueStatus.Submitted)
-            .HasSentinel(IssueStatus.Unspecified);
+        // Enums (Category, Urgency, Status) stored as integers by EF Core default
             
         builder.Property(i => i.ReviewedBy)
             .HasMaxLength(255);
@@ -52,13 +38,14 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
         builder.HasIndex(i => i.District);
         builder.HasIndex(i => i.CreatedAt).IsDescending();
         builder.HasIndex(i => i.EmailsSent).IsDescending();
+        // Partial index for active public issues (Status = Active = 4)
         builder.HasIndex(i => new { i.Status, i.PublicVisibility })
-            .HasFilter("\"Status\" = 'Active' AND \"PublicVisibility\" = true");
+            .HasFilter("\"Status\" = 4 AND \"PublicVisibility\" = true");
 
         // Composite index for main query
         builder.HasIndex(i => new { i.Status, i.PublicVisibility, i.CreatedAt })
             .IsDescending()
-            .HasFilter("\"Status\" = 'Active' AND \"PublicVisibility\" = true");
+            .HasFilter("\"Status\" = 4 AND \"PublicVisibility\" = true");
             
         // Relationships
         builder.HasOne(i => i.User)

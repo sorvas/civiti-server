@@ -33,6 +33,7 @@ public static class IssueEndpoints
             int? pageSize,
             string? category,
             string? urgency,
+            string? status,
             string? district,
             string? address,
             string? sortBy,
@@ -64,12 +65,32 @@ public static class IssueEndpoints
                 request.Urgency = parsedUrgency;
             }
 
+            // Parse status enum(s) - supports comma-separated values (e.g., "Active,Resolved")
+            if (!string.IsNullOrEmpty(status))
+            {
+                var statusParts = status.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var parsedStatuses = new List<IssueStatus>();
+
+                foreach (var statusPart in statusParts)
+                {
+                    if (Enum.TryParse<Civica.Api.Models.Domain.IssueStatus>(statusPart, true, out IssueStatus parsedStatus))
+                    {
+                        parsedStatuses.Add(parsedStatus);
+                    }
+                }
+
+                if (parsedStatuses.Count > 0)
+                {
+                    request.Statuses = parsedStatuses;
+                }
+            }
+
             PagedResult<IssueListResponse> result = await issueService.GetAllIssuesAsync(request);
             return Results.Ok(result);
         })
         .WithName("GetIssues")
         .WithSummary("Get paginated list of approved issues")
-        .WithDescription("Retrieves a paginated list of approved civic issues. Supports filtering by category, urgency level, district, and address. Results can be sorted by date, popularity (email count), or urgency. This endpoint returns only issues that have been approved by administrators.")
+        .WithDescription("Retrieves a paginated list of civic issues. By default, returns only Active issues. Use the status filter to include Resolved issues. Supports filtering by category, urgency level, status, district, and address. Results can be sorted by date, popularity (email count), or urgency. Only publicly visible issues are returned.")
         .Produces<PagedResult<IssueListResponse>>(200)
         .WithOpenApi(operation =>
         {
@@ -77,10 +98,11 @@ public static class IssueEndpoints
             operation.Parameters[1].Description = "Items per page (default: 12, max: 100)";
             operation.Parameters[2].Description = "Filter by category (Infrastructure, StreetLighting, GreenSpaces, etc.)";
             operation.Parameters[3].Description = "Filter by urgency (Low, Medium, High, Critical)";
-            operation.Parameters[4].Description = "Filter by district (e.g., Sector 1, Sector 2)";
-            operation.Parameters[5].Description = "Filter by address (partial match, case-insensitive)";
-            operation.Parameters[6].Description = "Sort field (date, emails, urgency)";
-            operation.Parameters[7].Description = "Sort in descending order (default: true)";
+            operation.Parameters[4].Description = "Filter by status - comma-separated (e.g., 'Active,Resolved'). Default: Active only";
+            operation.Parameters[5].Description = "Filter by district (e.g., Sector 1, Sector 2)";
+            operation.Parameters[6].Description = "Filter by address (partial match, case-insensitive)";
+            operation.Parameters[7].Description = "Sort field (date, emails, urgency)";
+            operation.Parameters[8].Description = "Sort in descending order (default: true)";
             return operation;
         });
 

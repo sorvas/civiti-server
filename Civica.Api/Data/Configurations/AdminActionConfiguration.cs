@@ -13,9 +13,7 @@ public class AdminActionConfiguration : IEntityTypeConfiguration<AdminAction>
         builder.Property(a => a.AdminSupabaseId)
             .HasMaxLength(255);
 
-        builder.Property(a => a.ActionType)
-            .HasConversion<string>()
-            .HasMaxLength(30);
+        // ActionType (AdminActionType enum) stored as integer by EF Core default
 
         builder.Property(a => a.Notes)
             .HasMaxLength(1000);
