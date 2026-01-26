@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Civica.Api.Migrations
 {
     [DbContext(typeof(CivicaDbContext))]
-    [Migration("20260123143042_InitialCreate")]
+    [Migration("20260126151842_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -75,138 +75,6 @@ namespace Civica.Api.Migrations
                     b.HasIndex("RewardBadgeId");
 
                     b.ToTable("Achievements");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-                            AchievementType = "issues_reported",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Report your first issue to start making a difference",
-                            IsActive = true,
-                            MaxProgress = 1,
-                            RequirementData = "{\"target\": 1}",
-                            RewardBadgeId = new Guid("11111111-1111-1111-1111-111111111111"),
-                            RewardPoints = 25,
-                            Title = "First Steps"
-                        },
-                        new
-                        {
-                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab"),
-                            AchievementType = "issues_reported",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Report 5 issues and become an active citizen",
-                            IsActive = true,
-                            MaxProgress = 5,
-                            RequirementData = "{\"target\": 5}",
-                            RewardBadgeId = new Guid("11111111-1111-1111-1111-111111111112"),
-                            RewardPoints = 75,
-                            Title = "Getting Started"
-                        },
-                        new
-                        {
-                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac"),
-                            AchievementType = "issues_reported",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Report 15 issues to become a community champion",
-                            IsActive = true,
-                            MaxProgress = 15,
-                            RequirementData = "{\"target\": 15}",
-                            RewardBadgeId = new Guid("11111111-1111-1111-1111-111111111113"),
-                            RewardPoints = 150,
-                            Title = "Community Champion"
-                        },
-                        new
-                        {
-                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaad"),
-                            AchievementType = "issues_reported",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Report 30 issues and become a civic leader",
-                            IsActive = true,
-                            MaxProgress = 30,
-                            RequirementData = "{\"target\": 30}",
-                            RewardBadgeId = new Guid("11111111-1111-1111-1111-111111111114"),
-                            RewardPoints = 300,
-                            Title = "Civic Leadership"
-                        },
-                        new
-                        {
-                            Id = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-                            AchievementType = "issues_resolved",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Get your first issue resolved",
-                            IsActive = true,
-                            MaxProgress = 1,
-                            RequirementData = "{\"target\": 1}",
-                            RewardBadgeId = new Guid("55555555-5555-5555-5555-555555555555"),
-                            RewardPoints = 50,
-                            Title = "First Resolution"
-                        },
-                        new
-                        {
-                            Id = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc"),
-                            AchievementType = "issues_resolved",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Get 5 of your issues resolved",
-                            IsActive = true,
-                            MaxProgress = 5,
-                            RequirementData = "{\"target\": 5}",
-                            RewardBadgeId = new Guid("55555555-5555-5555-5555-555555555556"),
-                            RewardPoints = 150,
-                            Title = "Resolution Streak"
-                        },
-                        new
-                        {
-                            Id = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-                            AchievementType = "login_streak",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Log in 7 days in a row",
-                            IsActive = true,
-                            MaxProgress = 7,
-                            RequirementData = "{\"target\": 7}",
-                            RewardBadgeId = new Guid("66666666-6666-6666-6666-666666666666"),
-                            RewardPoints = 75,
-                            Title = "Week Warrior"
-                        },
-                        new
-                        {
-                            Id = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccd"),
-                            AchievementType = "login_streak",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Log in 30 days in a row",
-                            IsActive = true,
-                            MaxProgress = 30,
-                            RequirementData = "{\"target\": 30}",
-                            RewardBadgeId = new Guid("66666666-6666-6666-6666-666666666667"),
-                            RewardPoints = 200,
-                            Title = "Monthly Dedication"
-                        },
-                        new
-                        {
-                            Id = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"),
-                            AchievementType = "quality_photos",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Submit 3 issues with quality photos",
-                            IsActive = true,
-                            MaxProgress = 3,
-                            RequirementData = "{\"target\": 3}",
-                            RewardBadgeId = new Guid("22222222-2222-2222-2222-222222222222"),
-                            RewardPoints = 50,
-                            Title = "Photography Basics"
-                        },
-                        new
-                        {
-                            Id = new Guid("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
-                            AchievementType = "level_up",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Reach level 5",
-                            IsActive = true,
-                            MaxProgress = 5,
-                            RequirementData = "{\"target\": 5}",
-                            RewardBadgeId = new Guid("77777777-7777-7777-7777-777777777777"),
-                            RewardPoints = 100,
-                            Title = "Level Up!"
-                        });
                 });
 
             modelBuilder.Entity("Civica.Api.Models.Domain.Activity", b =>
@@ -244,10 +112,8 @@ namespace Civica.Api.Migrations
                     b.Property<string>("Metadata")
                         .HasColumnType("jsonb");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -274,10 +140,8 @@ namespace Civica.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ActionType")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
+                    b.Property<int>("ActionType")
+                        .HasColumnType("integer");
 
                     b.Property<string>("AdminSupabaseId")
                         .HasMaxLength(255)
@@ -368,134 +232,6 @@ namespace Civica.Api.Migrations
                     b.HasIndex("City", "District");
 
                     b.ToTable("Authorities");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("a0000001-0000-0000-0000-000000000001"),
-                            City = "București",
-                            County = "București",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "pmb@pmb.ro",
-                            IsActive = true,
-                            Name = "Primăria Municipiului București"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000001-0000-0000-0000-000000000002"),
-                            City = "București",
-                            County = "București",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            District = "Sector 1",
-                            Email = "primarie@primarias1.ro",
-                            IsActive = true,
-                            Name = "Primăria Sectorului 1 București"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000001-0000-0000-0000-000000000003"),
-                            City = "București",
-                            County = "București",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            District = "Sector 2",
-                            Email = "primarie@ps2.ro",
-                            IsActive = true,
-                            Name = "Primăria Sectorului 2 București"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000001-0000-0000-0000-000000000004"),
-                            City = "București",
-                            County = "București",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            District = "Sector 3",
-                            Email = "primarie@primarie3.ro",
-                            IsActive = true,
-                            Name = "Primăria Sectorului 3 București"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000001-0000-0000-0000-000000000005"),
-                            City = "București",
-                            County = "București",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            District = "Sector 4",
-                            Email = "primarie@ps4.ro",
-                            IsActive = true,
-                            Name = "Primăria Sectorului 4 București"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000001-0000-0000-0000-000000000006"),
-                            City = "București",
-                            County = "București",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            District = "Sector 5",
-                            Email = "primarie@sector5.ro",
-                            IsActive = true,
-                            Name = "Primăria Sectorului 5 București"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000001-0000-0000-0000-000000000007"),
-                            City = "București",
-                            County = "București",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            District = "Sector 6",
-                            Email = "primarie@primarie6.ro",
-                            IsActive = true,
-                            Name = "Primăria Sectorului 6 București"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000002-0000-0000-0000-000000000001"),
-                            City = "Cluj-Napoca",
-                            County = "Cluj",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "primarie@primariaclujnapoca.ro",
-                            IsActive = true,
-                            Name = "Primăria Municipiului Cluj-Napoca"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000002-0000-0000-0000-000000000002"),
-                            City = "Timișoara",
-                            County = "Timiș",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "primarie@primariatm.ro",
-                            IsActive = true,
-                            Name = "Primăria Municipiului Timișoara"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000002-0000-0000-0000-000000000003"),
-                            City = "Iași",
-                            County = "Iași",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "primarie@primaria-iasi.ro",
-                            IsActive = true,
-                            Name = "Primăria Municipiului Iași"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000002-0000-0000-0000-000000000004"),
-                            City = "Constanța",
-                            County = "Constanța",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "primarie@primaria-constanta.ro",
-                            IsActive = true,
-                            Name = "Primăria Municipiului Constanța"
-                        },
-                        new
-                        {
-                            Id = new Guid("a0000002-0000-0000-0000-000000000005"),
-                            City = "Brașov",
-                            County = "Brașov",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Email = "primarie@brasovcity.ro",
-                            IsActive = true,
-                            Name = "Primăria Municipiului Brașov"
-                        });
                 });
 
             modelBuilder.Entity("Civica.Api.Models.Domain.Badge", b =>
@@ -504,10 +240,8 @@ namespace Civica.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
+                    b.Property<int>("Category")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -529,12 +263,8 @@ namespace Civica.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<string>("Rarity")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("Common");
+                    b.Property<int>("Rarity")
+                        .HasColumnType("integer");
 
                     b.Property<string>("RequirementDescription")
                         .HasMaxLength(500)
@@ -557,218 +287,6 @@ namespace Civica.Api.Migrations
                     b.HasIndex("Rarity");
 
                     b.ToTable("Badges");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            Category = "Starter",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Reported your first community issue",
-                            IconUrl = "/assets/badges/civic-starter.svg",
-                            IsActive = true,
-                            Name = "Civic Starter",
-                            Rarity = "Common",
-                            RequirementDescription = "Report your first issue",
-                            RequirementType = "issues_reported",
-                            RequirementValue = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111112"),
-                            Category = "Progress",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Reported 5 community issues",
-                            IconUrl = "/assets/badges/active-citizen.svg",
-                            IsActive = true,
-                            Name = "Active Citizen",
-                            Rarity = "Uncommon",
-                            RequirementDescription = "Report 5 issues",
-                            RequirementType = "issues_reported",
-                            RequirementValue = 5
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111113"),
-                            Category = "Progress",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Reported 15 community issues",
-                            IconUrl = "/assets/badges/community-champion.svg",
-                            IsActive = true,
-                            Name = "Community Champion",
-                            Rarity = "Rare",
-                            RequirementDescription = "Report 15 issues",
-                            RequirementType = "issues_reported",
-                            RequirementValue = 15
-                        },
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111114"),
-                            Category = "Achievement",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Reported 30 community issues - a true leader!",
-                            IconUrl = "/assets/badges/civic-leader.svg",
-                            IsActive = true,
-                            Name = "Civic Leader",
-                            Rarity = "Epic",
-                            RequirementDescription = "Report 30 issues",
-                            RequirementType = "issues_reported",
-                            RequirementValue = 30
-                        },
-                        new
-                        {
-                            Id = new Guid("55555555-5555-5555-5555-555555555555"),
-                            Category = "Progress",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Had your first issue resolved",
-                            IconUrl = "/assets/badges/problem-solver.svg",
-                            IsActive = true,
-                            Name = "Problem Solver",
-                            Rarity = "Uncommon",
-                            RequirementDescription = "1 issue resolved",
-                            RequirementType = "issues_resolved",
-                            RequirementValue = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("55555555-5555-5555-5555-555555555556"),
-                            Category = "Achievement",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Had 5 of your issues resolved",
-                            IconUrl = "/assets/badges/resolution-expert.svg",
-                            IsActive = true,
-                            Name = "Resolution Expert",
-                            Rarity = "Rare",
-                            RequirementDescription = "5 issues resolved",
-                            RequirementType = "issues_resolved",
-                            RequirementValue = 5
-                        },
-                        new
-                        {
-                            Id = new Guid("55555555-5555-5555-5555-555555555557"),
-                            Category = "Achievement",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Had 10 of your issues resolved - making real impact!",
-                            IconUrl = "/assets/badges/master-resolver.svg",
-                            IsActive = true,
-                            Name = "Master Resolver",
-                            Rarity = "Epic",
-                            RequirementDescription = "10 issues resolved",
-                            RequirementType = "issues_resolved",
-                            RequirementValue = 10
-                        },
-                        new
-                        {
-                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            Category = "Progress",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Uploaded high-quality photos with your reports",
-                            IconUrl = "/assets/badges/picture-perfect.svg",
-                            IsActive = true,
-                            Name = "Picture Perfect",
-                            Rarity = "Uncommon",
-                            RequirementDescription = "Upload 3 issues with quality photos",
-                            RequirementType = "quality_photos",
-                            RequirementValue = 3
-                        },
-                        new
-                        {
-                            Id = new Guid("22222222-2222-2222-2222-222222222223"),
-                            Category = "Achievement",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Documented 10 issues with quality photos",
-                            IconUrl = "/assets/badges/photo-journalist.svg",
-                            IsActive = true,
-                            Name = "Photo Journalist",
-                            Rarity = "Rare",
-                            RequirementDescription = "Upload 10 issues with quality photos",
-                            RequirementType = "quality_photos",
-                            RequirementValue = 10
-                        },
-                        new
-                        {
-                            Id = new Guid("44444444-4444-4444-4444-444444444444"),
-                            Category = "Progress",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Voted on 10 community issues",
-                            IconUrl = "/assets/badges/community-voice.svg",
-                            IsActive = true,
-                            Name = "Community Voice",
-                            Rarity = "Common",
-                            RequirementDescription = "Vote on 10 issues",
-                            RequirementType = "community_votes",
-                            RequirementValue = 10
-                        },
-                        new
-                        {
-                            Id = new Guid("66666666-6666-6666-6666-666666666666"),
-                            Category = "Progress",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Logged in 7 days in a row",
-                            IconUrl = "/assets/badges/dedicated-citizen.svg",
-                            IsActive = true,
-                            Name = "Dedicated Citizen",
-                            Rarity = "Uncommon",
-                            RequirementDescription = "7-day login streak",
-                            RequirementType = "login_streak",
-                            RequirementValue = 7
-                        },
-                        new
-                        {
-                            Id = new Guid("66666666-6666-6666-6666-666666666667"),
-                            Category = "Achievement",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Logged in 30 days in a row - incredible dedication!",
-                            IconUrl = "/assets/badges/consistency-king.svg",
-                            IsActive = true,
-                            Name = "Consistency King",
-                            Rarity = "Rare",
-                            RequirementDescription = "30-day login streak",
-                            RequirementType = "login_streak",
-                            RequirementValue = 30
-                        },
-                        new
-                        {
-                            Id = new Guid("77777777-7777-7777-7777-777777777777"),
-                            Category = "Progress",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Reached level 5",
-                            IconUrl = "/assets/badges/rising-star.svg",
-                            IsActive = true,
-                            Name = "Rising Star",
-                            Rarity = "Uncommon",
-                            RequirementDescription = "Reach level 5",
-                            RequirementType = "level",
-                            RequirementValue = 5
-                        },
-                        new
-                        {
-                            Id = new Guid("77777777-7777-7777-7777-777777777778"),
-                            Category = "Achievement",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Reached level 10 - a seasoned civic advocate",
-                            IconUrl = "/assets/badges/veteran.svg",
-                            IsActive = true,
-                            Name = "Veteran",
-                            Rarity = "Rare",
-                            RequirementDescription = "Reach level 10",
-                            RequirementType = "level",
-                            RequirementValue = 10
-                        },
-                        new
-                        {
-                            Id = new Guid("77777777-7777-7777-7777-777777777779"),
-                            Category = "Special",
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Reached level 20 - a true civic legend!",
-                            IconUrl = "/assets/badges/legend.svg",
-                            IsActive = true,
-                            Name = "Legend",
-                            Rarity = "Legendary",
-                            RequirementDescription = "Reach level 20",
-                            RequirementType = "level",
-                            RequirementValue = 20
-                        });
                 });
 
             modelBuilder.Entity("Civica.Api.Models.Domain.Comment", b =>
@@ -872,10 +390,8 @@ namespace Civica.Api.Migrations
                     b.Property<string>("AdminNotes")
                         .HasColumnType("text");
 
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                    b.Property<int>("Category")
+                        .HasColumnType("integer");
 
                     b.Property<string>("CommunityImpact")
                         .HasColumnType("text");
@@ -917,12 +433,8 @@ namespace Civica.Api.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasDefaultValue("Submitted");
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -932,12 +444,8 @@ namespace Civica.Api.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Urgency")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("Medium");
+                    b.Property<int>("Urgency")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -961,11 +469,11 @@ namespace Civica.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.HasIndex("Status", "PublicVisibility")
-                        .HasFilter("\"Status\" = 'Active' AND \"PublicVisibility\" = true");
+                        .HasFilter("\"Status\" = 4 AND \"PublicVisibility\" = true");
 
                     b.HasIndex("Status", "PublicVisibility", "CreatedAt")
                         .IsDescending()
-                        .HasFilter("\"Status\" = 'Active' AND \"PublicVisibility\" = true");
+                        .HasFilter("\"Status\" = 4 AND \"PublicVisibility\" = true");
 
                     b.ToTable("Issues");
                 });
@@ -1045,12 +553,8 @@ namespace Civica.Api.Migrations
                     b.Property<Guid>("IssueId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Quality")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("Medium");
+                    b.Property<int>("Quality")
+                        .HasColumnType("integer");
 
                     b.Property<string>("ThumbnailUrl")
                         .HasMaxLength(1000)
@@ -1256,9 +760,8 @@ namespace Civica.Api.Migrations
                         .HasColumnType("numeric(5,2)")
                         .HasDefaultValue(0m);
 
-                    b.Property<string>("ResidenceType")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                    b.Property<int?>("ResidenceType")
+                        .HasColumnType("integer");
 
                     b.Property<string>("SupabaseUserId")
                         .IsRequired()
@@ -1354,7 +857,7 @@ namespace Civica.Api.Migrations
                         .IsRequired();
 
                     b.HasOne("Civica.Api.Models.Domain.Comment", "ParentComment")
-                        .WithMany()
+                        .WithMany("Replies")
                         .HasForeignKey("ParentCommentId")
                         .OnDelete(DeleteBehavior.Cascade);
 
@@ -1487,6 +990,8 @@ namespace Civica.Api.Migrations
 
             modelBuilder.Entity("Civica.Api.Models.Domain.Comment", b =>
                 {
+                    b.Navigation("Replies");
+
                     b.Navigation("Votes");
                 });
 

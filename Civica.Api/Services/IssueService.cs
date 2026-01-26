@@ -37,11 +37,38 @@ public class IssueService(
     {
         try
         {
+            // Only these statuses are allowed for public viewing
+            var allowedPublicStatuses = new[] { IssueStatus.Active, IssueStatus.Resolved };
+
             IQueryable<Issue> query = context.Issues
                 .Include(i => i.Photos)
                 .Include(i => i.User)
-                .Where(i => i.Status == IssueStatus.Active && i.PublicVisibility)
+                .Where(i => i.PublicVisibility)
                 .AsQueryable();
+
+            // Apply status filter - default to Active only if not specified
+            if (request.Statuses != null && request.Statuses.Count > 0)
+            {
+                // Filter to only allowed public statuses
+                var validStatuses = request.Statuses
+                    .Where(s => allowedPublicStatuses.Contains(s))
+                    .ToList();
+
+                if (validStatuses.Count > 0)
+                {
+                    query = query.Where(i => validStatuses.Contains(i.Status));
+                }
+                else
+                {
+                    // No valid statuses provided, default to Active
+                    query = query.Where(i => i.Status == IssueStatus.Active);
+                }
+            }
+            else
+            {
+                // Default: only Active issues
+                query = query.Where(i => i.Status == IssueStatus.Active);
+            }
 
             // Apply filters
             if (request.Category.HasValue)

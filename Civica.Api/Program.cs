@@ -7,9 +7,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
+using Npgsql;
 using Serilog;
 using FluentValidation;
 using Civica.Api.Data;
+using Civica.Api.Models.Domain;
 using Civica.Api.Services.Interfaces;
 using Civica.Api.Services;
 using Civica.Api.Infrastructure.Middleware;
@@ -105,6 +107,8 @@ if (connectionString?.StartsWith("postgres://") == true || connectionString?.Sta
     }
 }
 
+// Configure DbContext with PostgreSQL
+// Note: Enums are stored as integers (EF Core default) for simpler migration handling
 builder.Services.AddDbContext<CivicaDbContext>(options =>
     options.UseNpgsql(connectionString, npgsqlOptions =>
         {
@@ -181,6 +185,11 @@ Log.Information("Using Supabase JWKS endpoint for key discovery: {JwksUrl}", jwt
 builder.Services.AddSingleton<IJwksManager, JwksManager>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHostedService<JwksBackgroundService>();
+
+// Register static data seeder (badges, achievements, authorities)
+// This runs at startup and seeds required reference data via EF Core at runtime
+// (not in migrations) to properly handle PostgreSQL native enum types
+builder.Services.AddHostedService<StaticDataSeeder>();
 
 // Register demo data seeder (Development only)
 if (builder.Environment.IsDevelopment())

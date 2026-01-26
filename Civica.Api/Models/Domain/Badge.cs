@@ -7,7 +7,7 @@ public class Badge
     public string Description { get; set; } = string.Empty;
     public string? IconUrl { get; set; }
     public BadgeCategory Category { get; set; }
-    public BadgeRarity Rarity { get; set; } = BadgeRarity.Common;
+    public BadgeRarity Rarity { get; set; }
     public string? RequirementType { get; set; }
     public int? RequirementValue { get; set; }
     public string? RequirementDescription { get; set; }
@@ -20,17 +20,19 @@ public class Badge
 
 public enum BadgeCategory
 {
-    Starter,
-    Progress,
-    Achievement,
-    Special
+    Unspecified = 0,
+    Starter = 1,
+    Progress = 2,
+    Achievement = 3,
+    Special = 4
 }
 
 public enum BadgeRarity
 {
-    Common,
-    Uncommon,
-    Rare,
-    Epic,
-    Legendary
+    Unspecified = 0,
+    Common = 1,
+    Uncommon = 2,
+    Rare = 3,
+    Epic = 4,
+    Legendary = 5
 }
