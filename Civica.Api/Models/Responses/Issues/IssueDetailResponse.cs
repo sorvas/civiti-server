@@ -20,7 +20,6 @@ public class IssueDetailResponse
     public bool? HasVoted { get; set; }
     public string? DesiredOutcome { get; set; }
     public string? CommunityImpact { get; set; }
-    public bool PublicVisibility { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     

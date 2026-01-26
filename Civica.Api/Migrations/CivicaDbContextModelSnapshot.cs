@@ -420,9 +420,6 @@ namespace Civica.Api.Migrations
                     b.Property<double>("Longitude")
                         .HasColumnType("double precision");
 
-                    b.Property<bool>("PublicVisibility")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("RejectionReason")
                         .HasColumnType("text");
 
@@ -471,12 +468,9 @@ namespace Civica.Api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("Status", "PublicVisibility")
-                        .HasFilter("\"Status\" = 4 AND \"PublicVisibility\" = true");
-
-                    b.HasIndex("Status", "PublicVisibility", "CreatedAt")
+                    b.HasIndex("Status", "CreatedAt")
                         .IsDescending()
-                        .HasFilter("\"Status\" = 4 AND \"PublicVisibility\" = true");
+                        .HasFilter("\"Status\" = 4");
 
                     b.ToTable("Issues");
                 });

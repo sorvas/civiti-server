@@ -139,7 +139,6 @@ namespace Civica.Api.Migrations
                     CommunityImpact = table.Column<string>(type: "text", nullable: true),
                     AdminNotes = table.Column<string>(type: "text", nullable: true),
                     RejectionReason = table.Column<string>(type: "text", nullable: true),
-                    PublicVisibility = table.Column<bool>(type: "boolean", nullable: false),
                     ReviewedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     ReviewedBy = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -649,17 +648,11 @@ namespace Civica.Api.Migrations
                 column: "Status");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Issues_Status_PublicVisibility",
+                name: "IX_Issues_Status_CreatedAt",
                 table: "Issues",
-                columns: new[] { "Status", "PublicVisibility" },
-                filter: "\"Status\" = 4 AND \"PublicVisibility\" = true");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Issues_Status_PublicVisibility_CreatedAt",
-                table: "Issues",
-                columns: new[] { "Status", "PublicVisibility", "CreatedAt" },
+                columns: new[] { "Status", "CreatedAt" },
                 descending: new bool[0],
-                filter: "\"Status\" = 4 AND \"PublicVisibility\" = true");
+                filter: "\"Status\" = 4");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Issues_Urgency",

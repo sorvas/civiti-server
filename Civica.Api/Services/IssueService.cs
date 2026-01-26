@@ -44,7 +44,6 @@ public class IssueService(
             IQueryable<Issue> query = context.Issues
                 .Include(i => i.Photos)
                 .Include(i => i.User)
-                .Where(i => i.PublicVisibility)
                 .AsQueryable();
 
             // Apply status filter - default to Active only if not specified
@@ -116,23 +115,6 @@ public class IssueService(
 
             var totalItems = await query.CountAsync();
 
-            var issueIds = await query
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .Select(i => i.Id)
-                .ToListAsync();
-
-            // Get user's votes for these issues if authenticated
-            HashSet<Guid> votedIssueIds = [];
-            if (currentUserId.HasValue)
-            {
-                votedIssueIds = (await context.IssueVotes
-                    .Where(v => v.UserId == currentUserId.Value && issueIds.Contains(v.IssueId))
-                    .Select(v => v.IssueId)
-                    .ToListAsync())
-                    .ToHashSet();
-            }
-
             List<IssueListResponse> items = await query
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
@@ -157,6 +139,18 @@ public class IssueService(
                     Status = i.Status
                 })
                 .ToListAsync();
+
+            // Get user's votes for these issues if authenticated
+            HashSet<Guid> votedIssueIds = [];
+            if (currentUserId.HasValue)
+            {
+                var issueIds = items.Select(i => i.Id).ToList();
+                votedIssueIds = (await context.IssueVotes
+                    .Where(v => v.UserId == currentUserId.Value && issueIds.Contains(v.IssueId))
+                    .Select(v => v.IssueId)
+                    .ToListAsync())
+                    .ToHashSet();
+            }
 
             // Set HasVoted for each item
             foreach (var item in items)
@@ -189,12 +183,12 @@ public class IssueService(
                 .Include(i => i.User)
                 .Include(i => i.IssueAuthorities)
                     .ThenInclude(ia => ia.Authority)
-                .Where(i => i.Id == id && i.PublicVisibility)
+                .Where(i => i.Id == id && (i.Status == IssueStatus.Active || i.Status == IssueStatus.Resolved))
                 .FirstOrDefaultAsync();
 
             if (issue == null)
             {
-                logger.LogWarning("Issue {IssueId} not found or not publicly visible", id);
+                logger.LogWarning("Issue {IssueId} not found or not in a publicly viewable status", id);
                 return null;
             }
 
@@ -223,7 +217,6 @@ public class IssueService(
                 HasVoted = hasVoted,
                 DesiredOutcome = issue.DesiredOutcome,
                 CommunityImpact = issue.CommunityImpact,
-                PublicVisibility = issue.PublicVisibility,
                 CreatedAt = issue.CreatedAt,
                 UpdatedAt = issue.UpdatedAt,
                 Photos = issue.Photos.Select(p => new IssuePhotoResponse
@@ -474,38 +467,37 @@ public class IssueService(
             }
 
             // Check if issue exists and is valid for incrementing
-            var issueInfo = await context.Issues
+            var issueStatus = await context.Issues
                 .Where(i => i.Id == issueId)
-                .Select(i => new { i.Status, i.PublicVisibility })
+                .Select(i => (IssueStatus?)i.Status)
                 .FirstOrDefaultAsync();
 
-            if (issueInfo == null)
+            if (issueStatus == null)
             {
                 logger.LogWarning("Issue {IssueId} not found", issueId);
                 return (false, "Issue not found");
             }
 
-            // Only allow incrementing for active, publicly visible issues
-            if (issueInfo.Status != IssueStatus.Active || !issueInfo.PublicVisibility)
+            // Only allow incrementing for active issues
+            if (issueStatus != IssueStatus.Active)
             {
-                logger.LogWarning("Attempt to increment email count for non-public issue {IssueId}", issueId);
-                return (false, "Issue is not publicly available");
+                logger.LogWarning("Attempt to increment email count for non-active issue {IssueId}", issueId);
+                return (false, "Issue is not active");
             }
 
-            // Atomic increment with status/visibility check to prevent TOCTOU race condition
+            // Atomic increment with status check to prevent TOCTOU race condition
             int rowsAffected = await context.Issues
                 .Where(i => i.Id == issueId
-                         && i.Status == IssueStatus.Active
-                         && i.PublicVisibility)
+                         && i.Status == IssueStatus.Active)
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(i => i.EmailsSent, i => i.EmailsSent + 1)
                     .SetProperty(i => i.UpdatedAt, DateTime.UtcNow));
 
             if (rowsAffected == 0)
             {
-                // Issue may have been unapproved/hidden between check and update
+                // Issue may have been deactivated between check and update
                 logger.LogWarning("Failed to increment email count for issue {IssueId} - may have been modified", issueId);
-                return (false, "Issue is no longer publicly available");
+                return (false, "Issue is no longer active");
             }
 
             // Set cooldown in cache
@@ -1011,7 +1003,6 @@ public class IssueService(
                     EmailsSent = issue.EmailsSent,
                     DesiredOutcome = issue.DesiredOutcome,
                     CommunityImpact = issue.CommunityImpact,
-                    PublicVisibility = issue.PublicVisibility,
                     CreatedAt = issue.CreatedAt,
                     UpdatedAt = issue.UpdatedAt,
                     Photos = issue.Photos.Select(p => new IssuePhotoResponse

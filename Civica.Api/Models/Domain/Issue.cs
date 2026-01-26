@@ -19,7 +19,6 @@ public class Issue
     public string? CommunityImpact { get; set; }
     public string? AdminNotes { get; set; }
     public string? RejectionReason { get; set; }
-    public bool PublicVisibility { get; set; } = true;
     public DateTime? ReviewedAt { get; set; }
     public string? ReviewedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

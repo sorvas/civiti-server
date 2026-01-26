@@ -39,14 +39,10 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
         builder.HasIndex(i => i.CreatedAt).IsDescending();
         builder.HasIndex(i => i.EmailsSent).IsDescending();
         builder.HasIndex(i => i.CommunityVotes).IsDescending();
-        // Partial index for active public issues (Status = Active = 4)
-        builder.HasIndex(i => new { i.Status, i.PublicVisibility })
-            .HasFilter("\"Status\" = 4 AND \"PublicVisibility\" = true");
-
-        // Composite index for main query
-        builder.HasIndex(i => new { i.Status, i.PublicVisibility, i.CreatedAt })
+        // Composite index for active issues query (sorted by creation date)
+        builder.HasIndex(i => new { i.Status, i.CreatedAt })
             .IsDescending()
-            .HasFilter("\"Status\" = 4 AND \"PublicVisibility\" = true");
+            .HasFilter("\"Status\" = 4");
             
         // Relationships
         builder.HasOne(i => i.User)
