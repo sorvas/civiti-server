@@ -115,35 +115,48 @@ public class IssueService(
 
             var totalItems = await query.CountAsync();
 
-            List<IssueListResponse> items = await query
+            // Select issues with UserId to check ownership for HasVoted
+            var issueData = await query
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(i => new IssueListResponse
+                .Select(i => new
                 {
-                    Id = i.Id,
-                    Title = i.Title,
-                    Description = i.Description.Length > 200 ?
-                        i.Description.Substring(0, 197) + "..." : i.Description,
-                    Category = i.Category,
-                    Address = i.Address,
-                    Urgency = i.Urgency,
-                    EmailsSent = i.EmailsSent,
-                    CommunityVotes = i.CommunityVotes,
-                    CreatedAt = i.CreatedAt,
-                    MainPhotoUrl = i.Photos
-                        .Where(p => p.IsPrimary || i.Photos.Count == 1)
-                        .OrderBy(p => p.CreatedAt)
-                        .Select(p => p.Url)
-                        .FirstOrDefault(),
-                    District = i.District,
-                    Status = i.Status
+                    Issue = new IssueListResponse
+                    {
+                        Id = i.Id,
+                        Title = i.Title,
+                        Description = i.Description.Length > 200 ?
+                            i.Description.Substring(0, 197) + "..." : i.Description,
+                        Category = i.Category,
+                        Address = i.Address,
+                        Urgency = i.Urgency,
+                        EmailsSent = i.EmailsSent,
+                        CommunityVotes = i.CommunityVotes,
+                        CreatedAt = i.CreatedAt,
+                        MainPhotoUrl = i.Photos
+                            .Where(p => p.IsPrimary || i.Photos.Count == 1)
+                            .OrderBy(p => p.CreatedAt)
+                            .Select(p => p.Url)
+                            .FirstOrDefault(),
+                        District = i.District,
+                        Status = i.Status
+                    },
+                    i.UserId
                 })
                 .ToListAsync();
 
-            // Get user's votes for these issues if authenticated
+            List<IssueListResponse> items = issueData.Select(d => d.Issue).ToList();
+
+            // Get user's votes for these issues if authenticated (excluding owned issues)
             HashSet<Guid> votedIssueIds = [];
+            HashSet<Guid> ownedIssueIds = [];
             if (currentUserId.HasValue)
             {
+                ownedIssueIds = issueData
+                    .Where(d => d.UserId == currentUserId.Value)
+                    .Select(d => d.Issue.Id)
+                    .ToHashSet();
+
                 var issueIds = items.Select(i => i.Id).ToList();
                 votedIssueIds = (await context.IssueVotes
                     .Where(v => v.UserId == currentUserId.Value && issueIds.Contains(v.IssueId))
@@ -152,10 +165,17 @@ public class IssueService(
                     .ToHashSet();
             }
 
-            // Set HasVoted for each item
+            // Set HasVoted for each item (null if unauthenticated or owner - voting not applicable)
             foreach (var item in items)
             {
-                item.HasVoted = currentUserId.HasValue ? votedIssueIds.Contains(item.Id) : null;
+                if (!currentUserId.HasValue || ownedIssueIds.Contains(item.Id))
+                {
+                    item.HasVoted = null;
+                }
+                else
+                {
+                    item.HasVoted = votedIssueIds.Contains(item.Id);
+                }
             }
 
             return new PagedResult<IssueListResponse>
@@ -192,9 +212,9 @@ public class IssueService(
                 return null;
             }
 
-            // Check if current user has voted
+            // Check if current user has voted (null if owner or unauthenticated - voting not applicable)
             bool? hasVoted = null;
-            if (currentUserId.HasValue)
+            if (currentUserId.HasValue && issue.UserId != currentUserId.Value)
             {
                 hasVoted = await context.IssueVotes
                     .AnyAsync(v => v.IssueId == id && v.UserId == currentUserId.Value);
