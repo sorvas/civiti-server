@@ -570,7 +570,7 @@ public class AdminService(
             var pendingCount = statusCounts.GetValueOrDefault(IssueStatus.Submitted, 0) +
                               statusCounts.GetValueOrDefault(IssueStatus.UnderReview, 0);
 
-            var approvalRate = totalIssues > 0
+            var approvalRate = (activeCount + rejectedCount) > 0
                 ? (double)activeCount / (activeCount + rejectedCount) * 100
                 : 0;
 

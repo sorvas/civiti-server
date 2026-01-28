@@ -5,12 +5,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Civica.Api.Services;
 
 /// <summary>
-/// Seeds static reference data (badges, achievements, authorities) at runtime.
-/// This approach is required because EF Core migrations don't properly handle
-/// PostgreSQL native enum types in HasData() seed data - they generate integer
-/// values instead of enum labels, causing type mismatch errors.
-///
-/// This seeder runs before DemoDataSeeder and is idempotent (checks for existing data).
+/// Seeds static reference data (badges, achievements, authorities) at application startup.
+/// Runs before DemoDataSeeder and is idempotent (checks for existing data before inserting).
 /// </summary>
 public class StaticDataSeeder : IHostedService
 {

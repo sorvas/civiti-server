@@ -41,6 +41,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: true));
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
 });
 
 // Configure Swagger with comprehensive documentation
@@ -187,8 +188,6 @@ builder.Services.AddMemoryCache();
 builder.Services.AddHostedService<JwksBackgroundService>();
 
 // Register static data seeder (badges, achievements, authorities)
-// This runs at startup and seeds required reference data via EF Core at runtime
-// (not in migrations) to properly handle PostgreSQL native enum types
 builder.Services.AddHostedService<StaticDataSeeder>();
 
 // Register demo data seeder (Development only)
