@@ -187,14 +187,8 @@ builder.Services.AddSingleton<IJwksManager, JwksManager>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHostedService<JwksBackgroundService>();
 
-// Register static data seeder (badges, achievements, authorities)
+// Register static data seeder (badges, achievements)
 builder.Services.AddHostedService<StaticDataSeeder>();
-
-// Register demo data seeder (Development only)
-if (builder.Environment.IsDevelopment())
-{
-    builder.Services.AddHostedService<DemoDataSeeder>();
-}
 
 // Add JWT Bearer authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
