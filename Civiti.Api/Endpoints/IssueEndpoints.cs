@@ -271,7 +271,7 @@ public static class IssueEndpoints
         })
         .WithName("GenerateIssuePoster")
         .WithSummary("Generate printable PDF poster with QR code")
-        .WithDescription("Generates a printable A4 PDF poster featuring a QR code that links to the specified civic issue. The poster includes the Civica branding, a large QR code, a Romanian call-to-action, and the issue title. Only available for publicly visible, active issues. No authentication required.")
+        .WithDescription("Generates a printable A4 PDF poster featuring a QR code that links to the specified civic issue. The poster includes the Civiti branding, a large QR code, a Romanian call-to-action, and the issue title. Only available for publicly visible, active issues. No authentication required.")
         .Produces(200, contentType: "application/pdf")
         .Produces(404)
         .WithOpenApi();

@@ -9,10 +9,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Civica.Api.Migrations
+namespace Civiti.Api.Migrations
 {
     [DbContext(typeof(CivitiDbContext))]
-    [Migration("20260126215954_InitialCreate")]
+    [Migration("20260131122839_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

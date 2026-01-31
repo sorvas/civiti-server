@@ -22,7 +22,7 @@ public class CreateUserProfileRequestExample : IExamplesProvider<CreateUserProfi
         return new CreateUserProfileRequest
         {
             DisplayName = "Ion Popescu",
-            PhotoUrl = "https://storage.civica.ro/avatars/user-123.jpg",
+            PhotoUrl = "https://storage.civiti.ro/avatars/user-123.jpg",
             County = "București",
             City = "București",
             District = "Sector 1",
@@ -43,7 +43,7 @@ public class UserProfileResponseExample : IExamplesProvider<UserProfileResponse>
             Id = Guid.NewGuid(),
             Email = "ion.popescu@example.com",
             DisplayName = "Ion Popescu",
-            PhotoUrl = "https://storage.civica.ro/avatars/user-123.jpg",
+            PhotoUrl = "https://storage.civiti.ro/avatars/user-123.jpg",
             County = "București",
             City = "București",
             District = "Sector 1",
@@ -84,8 +84,8 @@ public class CreateIssueRequestExample : IExamplesProvider<CreateIssueRequest>
             Longitude = 26.1025,
             PhotoUrls =
             [
-                "https://storage.civica.ro/photos/issue-123-photo1.jpg",
-                "https://storage.civica.ro/photos/issue-123-photo2.jpg"
+                "https://storage.civiti.ro/photos/issue-123-photo1.jpg",
+                "https://storage.civiti.ro/photos/issue-123-photo2.jpg"
             ],
             Authorities =
             [
@@ -113,7 +113,7 @@ public class IssueListResponseExample : IExamplesProvider<IssueListResponse>
             Urgency = UrgencyLevel.High,
             EmailsSent = 245,
             CreatedAt = DateTime.UtcNow.AddDays(-5),
-            MainPhotoUrl = "https://storage.civica.ro/photos/issue-123-photo1.jpg",
+            MainPhotoUrl = "https://storage.civiti.ro/photos/issue-123-photo1.jpg",
             Status = IssueStatus.Active
         };
     }
@@ -217,7 +217,7 @@ public class UserGamificationResponseExample : IExamplesProvider<UserGamificatio
                     Id = Guid.NewGuid(),
                     Name = "First Issue",
                     Description = "Created your first issue",
-                    IconUrl = "https://storage.civica.ro/badges/first-issue.svg",
+                    IconUrl = "https://storage.civiti.ro/badges/first-issue.svg",
                     Category = "Participation",
                     Rarity = "Common",
                     RequirementDescription = "Report your first civic issue",
@@ -230,7 +230,7 @@ public class UserGamificationResponseExample : IExamplesProvider<UserGamificatio
                     Id = Guid.NewGuid(),
                     Name = "Email Warrior",
                     Description = "Sent 100 emails for civic causes",
-                    IconUrl = "https://storage.civica.ro/badges/email-warrior.svg",
+                    IconUrl = "https://storage.civiti.ro/badges/email-warrior.svg",
                     Category = "Engagement",
                     Rarity = "Rare",
                     RequirementDescription = "Send 100 emails through campaigns",
@@ -275,7 +275,7 @@ public class LeaderboardResponseExample : IExamplesProvider<LeaderboardResponse>
                     {
                         Id = Guid.NewGuid(),
                         DisplayName = "Ana Popa",
-                        PhotoUrl = "https://storage.civica.ro/avatars/user-456.jpg",
+                        PhotoUrl = "https://storage.civiti.ro/avatars/user-456.jpg",
                         City = "București"
                     },
                     Points = 1250,
@@ -292,7 +292,7 @@ public class LeaderboardResponseExample : IExamplesProvider<LeaderboardResponse>
                     {
                         Id = Guid.NewGuid(),
                         DisplayName = "Mihai Ionescu",
-                        PhotoUrl = "https://storage.civica.ro/avatars/user-789.jpg",
+                        PhotoUrl = "https://storage.civiti.ro/avatars/user-789.jpg",
                         City = "Cluj-Napoca"
                     },
                     Points = 1180,

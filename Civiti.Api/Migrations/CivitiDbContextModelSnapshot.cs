@@ -8,10 +8,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Civica.Api.Migrations
+namespace Civiti.Api.Migrations
 {
     [DbContext(typeof(CivitiDbContext))]
-    partial class CivicaDbContextModelSnapshot : ModelSnapshot
+    partial class CivitiDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {

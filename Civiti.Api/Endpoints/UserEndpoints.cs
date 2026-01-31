@@ -147,7 +147,7 @@ public static class UserEndpoints
         })
         .WithName("CreateUserProfile")
         .WithSummary("Create or update user profile")
-        .WithDescription("Creates a new user profile in the Civica system after successful Supabase OAuth authentication, or updates an existing profile if one already exists. This endpoint is idempotent - calling it multiple times with the same data will not cause errors.")
+        .WithDescription("Creates a new user profile in the Civiti system after successful Supabase OAuth authentication, or updates an existing profile if one already exists. This endpoint is idempotent - calling it multiple times with the same data will not cause errors.")
         .Produces<UserProfileResponse>(StatusCodes.Status201Created)
         .Produces<UserProfileResponse>()
         .Produces(StatusCodes.Status400BadRequest)

@@ -29,7 +29,7 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .WriteTo.Console()
-    .WriteTo.File("logs/civica-.txt", rollingInterval: RollingInterval.Day)
+    .WriteTo.File("logs/civiti-.txt", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -245,7 +245,7 @@ builder.Services.AddAuthorizationBuilder()
 // CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("CivicaPolicy", policy =>
+    options.AddPolicy("CivitiPolicy", policy =>
     {
         // Get allowed origins from configuration or environment variable
         // Fix: Check for null or whitespace before splitting to avoid empty array blocking fallback
@@ -438,11 +438,11 @@ app.UseSwagger();
 
 app.UseSwaggerUI(options =>
 {
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Civica API v1");
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Civiti API v1");
     options.RoutePrefix = "swagger";
 
     // Configure UI
-    options.DocumentTitle = "Civica API Documentation";
+    options.DocumentTitle = "Civiti API Documentation";
     options.DefaultModelsExpandDepth(2);
     options.DefaultModelRendering(Swashbuckle.AspNetCore.SwaggerUI.ModelRendering.Model);
     options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List);
@@ -454,7 +454,7 @@ app.UseSwaggerUI(options =>
     options.InjectStylesheet("/swagger-ui/custom.css");
 });
 
-app.UseCors("CivicaPolicy");
+app.UseCors("CivitiPolicy");
 app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseAuthentication();
