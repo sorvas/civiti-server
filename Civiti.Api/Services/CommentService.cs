@@ -313,7 +313,7 @@ public class CommentService(
                         .Select(c => c.UserId)
                         .FirstOrDefaultAsync();
 
-                    if (parentCommentUserId != default && parentCommentUserId != user.Id)
+                    if (parentCommentUserId != default && parentCommentUserId != user.Id && parentCommentUserId != issue.UserId)
                     {
                         UserProfile? parentUser = await context.UserProfiles
                             .AsNoTracking()
