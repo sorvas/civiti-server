@@ -441,6 +441,9 @@ public class IssueService(
 
             await transaction.CommitAsync();
 
+            // Flush gamification notifications now that the transaction is committed
+            await gamificationService.FlushPendingNotificationsAsync();
+
             // Record activity (outside transaction to avoid circular dependency issues)
             try
             {
@@ -762,6 +765,9 @@ public class IssueService(
                 }
 
                 await transaction.CommitAsync();
+
+                // Flush gamification notifications now that the transaction is committed
+                await gamificationService.FlushPendingNotificationsAsync();
 
                 // Record activity (outside transaction)
                 try
@@ -1248,6 +1254,10 @@ public class IssueService(
                 await gamificationService.CheckAndAwardBadgesAsync(user.Id);
 
                 await transaction.CommitAsync();
+
+                // Flush gamification notifications now that the transaction is committed
+                await gamificationService.FlushPendingNotificationsAsync();
+
                 return true;
             });
 

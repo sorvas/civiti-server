@@ -12,6 +12,34 @@ public class GamificationService(
     CivitiDbContext context,
     INotificationService notificationService) : IGamificationService
 {
+    private readonly List<Func<Task>> _pendingNotifications = [];
+
+    public async Task FlushPendingNotificationsAsync()
+    {
+        var notifications = _pendingNotifications.ToList();
+        _pendingNotifications.Clear();
+
+        foreach (var notify in notifications)
+        {
+            try
+            {
+                await notify();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to send deferred gamification notification");
+            }
+        }
+    }
+
+    private async Task FlushIfNoTransactionAsync()
+    {
+        if (context.Database.CurrentTransaction == null)
+        {
+            await FlushPendingNotificationsAsync();
+        }
+    }
+
     public async Task AwardPointsAsync(Guid userId, int points, string reason, bool saveChanges = true)
     {
         try
@@ -35,14 +63,9 @@ public class GamificationService(
                 // Award level up achievement (use absolute progress to set level directly)
                 await UpdateAchievementProgressAsync(userId, "level_up", newLevel, isAbsolute: true, saveChanges: false);
 
-                try
-                {
-                    await notificationService.NotifyLevelUpAsync(user, newLevel);
-                }
-                catch (Exception notifyEx)
-                {
-                    logger.LogError(notifyEx, "Failed to send level-up notification for user {UserId}", userId);
-                }
+                var capturedUser = user;
+                var capturedLevel = newLevel;
+                _pendingNotifications.Add(() => notificationService.NotifyLevelUpAsync(capturedUser, capturedLevel));
             }
 
             user.UpdatedAt = DateTime.UtcNow;
@@ -50,6 +73,7 @@ public class GamificationService(
             if (saveChanges)
             {
                 await context.SaveChangesAsync();
+                await FlushIfNoTransactionAsync();
             }
 
             logger.LogInformation("Awarded {Points} points to user {UserId} for {Reason}", points, userId, reason);
@@ -149,14 +173,8 @@ public class GamificationService(
                     earnedBadgeIds.Add(badge.Id);
                     logger.LogInformation("User {UserId} earned badge {BadgeName}", userId, badge.Name);
 
-                    try
-                    {
-                        await notificationService.NotifyBadgeEarnedAsync(user, badge.Name);
-                    }
-                    catch (Exception notifyEx)
-                    {
-                        logger.LogError(notifyEx, "Failed to send badge notification for user {UserId}", userId);
-                    }
+                    var capturedBadgeName = badge.Name;
+                    _pendingNotifications.Add(() => notificationService.NotifyBadgeEarnedAsync(user, capturedBadgeName));
 
                     // Award points for earning badge (don't save yet)
                     var badgePoints = badge.Rarity switch
@@ -176,6 +194,7 @@ public class GamificationService(
             if (saveChanges)
             {
                 await context.SaveChangesAsync();
+                await FlushIfNoTransactionAsync();
             }
         }
         catch (Exception ex)
@@ -266,24 +285,23 @@ public class GamificationService(
                     logger.LogInformation("User {UserId} completed achievement {AchievementTitle}",
                         userId, userAchievement.Achievement.Title);
 
-                    try
+                    var capturedAchievementTitle = userAchievement.Achievement.Title;
+                    var capturedUserId = userId;
+                    _pendingNotifications.Add(async () =>
                     {
-                        UserProfile? achiever = await context.UserProfiles.FindAsync(userId);
+                        UserProfile? achiever = await context.UserProfiles.FindAsync(capturedUserId);
                         if (achiever != null)
                         {
-                            await notificationService.NotifyAchievementCompletedAsync(achiever, userAchievement.Achievement.Title);
+                            await notificationService.NotifyAchievementCompletedAsync(achiever, capturedAchievementTitle);
                         }
-                    }
-                    catch (Exception notifyEx)
-                    {
-                        logger.LogError(notifyEx, "Failed to send achievement notification for user {UserId}", userId);
-                    }
+                    });
                 }
             }
 
             if (saveChanges)
             {
                 await context.SaveChangesAsync();
+                await FlushIfNoTransactionAsync();
             }
         }
         catch (Exception ex)
@@ -346,6 +364,7 @@ public class GamificationService(
             if (saveChanges)
             {
                 await context.SaveChangesAsync();
+                await FlushIfNoTransactionAsync();
             }
         }
         catch (Exception ex)

@@ -263,6 +263,9 @@ public class UserService(
                 // Commit only after all operations succeed
                 await transaction.CommitAsync();
 
+                // Flush gamification notifications now that the transaction is committed
+                await gamificationService.FlushPendingNotificationsAsync();
+
                 // Detach entity and return to avoid tracking issues with subsequent queries
                 context.Entry(user).State = EntityState.Detached;
                 return user;

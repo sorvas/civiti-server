@@ -275,6 +275,9 @@ public class AdminService(
                 await context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                // Flush gamification notifications now that the transaction is committed
+                await gamificationService.FlushPendingNotificationsAsync();
+
                 // Record activity (outside transaction to avoid issues)
                 try
                 {

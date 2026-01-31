@@ -1,3 +1,4 @@
+using System.Net;
 using Civiti.Api.Models.Email;
 using static Civiti.Api.Infrastructure.Email.EmailDataKeys;
 
@@ -9,6 +10,10 @@ namespace Civiti.Api.Infrastructure.Email;
 /// </summary>
 public static class EmailTemplates
 {
+    /// <summary>
+    /// HTML-encodes a string to prevent injection in email content.
+    /// </summary>
+    private static string H(string? value) => WebUtility.HtmlEncode(value ?? "");
     public static (string Subject, string BodyHtml) Get(EmailNotificationType type, Dictionary<string, string> data)
     {
         return type switch
@@ -33,8 +38,8 @@ public static class EmailTemplates
 
     private static (string, string) IssueSubmitted(Dictionary<string, string> d)
     {
-        var title = d.GetValueOrDefault(IssueTitle, "");
-        var userName = d.GetValueOrDefault(UserName, "");
+        var title = H(d.GetValueOrDefault(IssueTitle, ""));
+        var userName = H(d.GetValueOrDefault(UserName, ""));
         return (
             "Problema ta a fost trimisa",
             "<p>Salut, <strong>" + userName + "</strong>!</p>" +
@@ -45,8 +50,8 @@ public static class EmailTemplates
 
     private static (string, string) IssueApproved(Dictionary<string, string> d)
     {
-        var title = d.GetValueOrDefault(IssueTitle, "");
-        var userName = d.GetValueOrDefault(UserName, "");
+        var title = H(d.GetValueOrDefault(IssueTitle, ""));
+        var userName = H(d.GetValueOrDefault(UserName, ""));
         return (
             "Problema ta a fost aprobata!",
             "<p>Vesti bune, <strong>" + userName + "</strong>!</p>" +
@@ -58,9 +63,9 @@ public static class EmailTemplates
 
     private static (string, string) IssueRejected(Dictionary<string, string> d)
     {
-        var title = d.GetValueOrDefault(IssueTitle, "");
-        var userName = d.GetValueOrDefault(UserName, "");
-        var reason = d.GetValueOrDefault(Reason, "Nu a fost specificat un motiv.");
+        var title = H(d.GetValueOrDefault(IssueTitle, ""));
+        var userName = H(d.GetValueOrDefault(UserName, ""));
+        var reason = H(d.GetValueOrDefault(Reason, "Nu a fost specificat un motiv."));
         return (
             "Problema ta nu a fost aprobata",
             "<p>Salut, <strong>" + userName + "</strong>.</p>" +
@@ -72,9 +77,9 @@ public static class EmailTemplates
 
     private static (string, string) ChangesRequested(Dictionary<string, string> d)
     {
-        var title = d.GetValueOrDefault(IssueTitle, "");
-        var userName = d.GetValueOrDefault(UserName, "");
-        var notes = d.GetValueOrDefault(Notes, "");
+        var title = H(d.GetValueOrDefault(IssueTitle, ""));
+        var userName = H(d.GetValueOrDefault(UserName, ""));
+        var notes = H(d.GetValueOrDefault(Notes, ""));
         return (
             "Modificari solicitate pentru problema ta",
             "<p>Salut, <strong>" + userName + "</strong>.</p>" +
@@ -89,8 +94,8 @@ public static class EmailTemplates
 
     private static (string, string) IssueResolved(Dictionary<string, string> d)
     {
-        var title = d.GetValueOrDefault(IssueTitle, "");
-        var userName = d.GetValueOrDefault(UserName, "");
+        var title = H(d.GetValueOrDefault(IssueTitle, ""));
+        var userName = H(d.GetValueOrDefault(UserName, ""));
         return (
             "Problema a fost rezolvata!",
             "<p>Salut, <strong>" + userName + "</strong>!</p>" +
@@ -101,8 +106,8 @@ public static class EmailTemplates
 
     private static (string, string) IssueCancelled(Dictionary<string, string> d)
     {
-        var title = d.GetValueOrDefault(IssueTitle, "");
-        var userName = d.GetValueOrDefault(UserName, "");
+        var title = H(d.GetValueOrDefault(IssueTitle, ""));
+        var userName = H(d.GetValueOrDefault(UserName, ""));
         return (
             "Problema a fost anulata",
             "<p>Salut, <strong>" + userName + "</strong>.</p>" +
@@ -112,10 +117,10 @@ public static class EmailTemplates
 
     private static (string, string) NewCommentOnIssue(Dictionary<string, string> d)
     {
-        var title = d.GetValueOrDefault(IssueTitle, "");
-        var userName = d.GetValueOrDefault(UserName, "");
-        var commenterName = d.GetValueOrDefault(CommenterName, "Cineva");
-        var excerpt = d.GetValueOrDefault(CommentExcerpt, "");
+        var title = H(d.GetValueOrDefault(IssueTitle, ""));
+        var userName = H(d.GetValueOrDefault(UserName, ""));
+        var commenterName = H(d.GetValueOrDefault(CommenterName, "Cineva"));
+        var excerpt = H(d.GetValueOrDefault(CommentExcerpt, ""));
         return (
             "Comentariu nou la problema ta",
             "<p>Salut, <strong>" + userName + "</strong>!</p>" +
@@ -128,9 +133,9 @@ public static class EmailTemplates
 
     private static (string, string) ReplyToComment(Dictionary<string, string> d)
     {
-        var userName = d.GetValueOrDefault(UserName, "");
-        var replierName = d.GetValueOrDefault(ReplierName, "Cineva");
-        var excerpt = d.GetValueOrDefault(ReplyExcerpt, "");
+        var userName = H(d.GetValueOrDefault(UserName, ""));
+        var replierName = H(d.GetValueOrDefault(ReplierName, "Cineva"));
+        var excerpt = H(d.GetValueOrDefault(ReplyExcerpt, ""));
         return (
             "Raspuns la comentariul tau",
             "<p>Salut, <strong>" + userName + "</strong>!</p>" +
@@ -143,11 +148,12 @@ public static class EmailTemplates
 
     private static (string, string) VoteMilestone(Dictionary<string, string> d)
     {
-        var title = d.GetValueOrDefault(IssueTitle, "");
-        var userName = d.GetValueOrDefault(UserName, "");
-        var count = d.GetValueOrDefault(VoteCount, "0");
+        var title = H(d.GetValueOrDefault(IssueTitle, ""));
+        var userName = H(d.GetValueOrDefault(UserName, ""));
+        var rawCount = d.GetValueOrDefault(VoteCount, "0");
+        var count = H(rawCount);
         return (
-            "Problema ta a atins " + count + " voturi!",
+            "Problema ta a atins " + rawCount + " voturi!",
             "<p>Felicitari, <strong>" + userName + "</strong>!</p>" +
             "<p>Problema ta <strong>" + title + "</strong> a atins un nou prag: <strong style=\"color: #FCA311;\">" + count + " voturi</strong> din partea comunitatii!</p>" +
             "<p>Continua sa faci diferenta in comunitatea ta.</p>"
@@ -156,11 +162,12 @@ public static class EmailTemplates
 
     private static (string, string) EmailSupportMilestone(Dictionary<string, string> d)
     {
-        var title = d.GetValueOrDefault(IssueTitle, "");
-        var userName = d.GetValueOrDefault(UserName, "");
-        var count = d.GetValueOrDefault(EmailCount, "0");
+        var title = H(d.GetValueOrDefault(IssueTitle, ""));
+        var userName = H(d.GetValueOrDefault(UserName, ""));
+        var rawCount = d.GetValueOrDefault(EmailCount, "0");
+        var count = H(rawCount);
         return (
-            "Problema ta: " + count + " emailuri trimise!",
+            "Problema ta: " + rawCount + " emailuri trimise!",
             "<p>Felicitari, <strong>" + userName + "</strong>!</p>" +
             "<p>Comunitatea a trimis <strong style=\"color: #FCA311;\">" + count + " emailuri</strong> catre autoritati in sprijinul problemei tale <strong>" + title + "</strong>!</p>" +
             "<p>Presiunea civica functioneaza!</p>"
@@ -169,10 +176,11 @@ public static class EmailTemplates
 
     private static (string, string) LevelUp(Dictionary<string, string> d)
     {
-        var userName = d.GetValueOrDefault(UserName, "");
-        var level = d.GetValueOrDefault(Level, "");
+        var userName = H(d.GetValueOrDefault(UserName, ""));
+        var rawLevel = d.GetValueOrDefault(Level, "");
+        var level = H(rawLevel);
         return (
-            "Ai avansat la nivelul " + level + "!",
+            "Ai avansat la nivelul " + rawLevel + "!",
             "<p>Felicitari, <strong>" + userName + "</strong>!</p>" +
             "<p>Ai atins <strong style=\"color: #FCA311;\">Nivelul " + level + "</strong> pe Civiti!</p>" +
             "<p>Continua activitatea civica pentru a avansa si mai mult.</p>"
@@ -181,10 +189,11 @@ public static class EmailTemplates
 
     private static (string, string) BadgeEarned(Dictionary<string, string> d)
     {
-        var userName = d.GetValueOrDefault(UserName, "");
-        var badgeName = d.GetValueOrDefault(BadgeName, "");
+        var userName = H(d.GetValueOrDefault(UserName, ""));
+        var rawBadgeName = d.GetValueOrDefault(BadgeName, "");
+        var badgeName = H(rawBadgeName);
         return (
-            "Ai castigat insigna " + badgeName + "!",
+            "Ai castigat insigna " + rawBadgeName + "!",
             "<p>Felicitari, <strong>" + userName + "</strong>!</p>" +
             "<p>Ai castigat o insigna noua: <strong style=\"color: #FCA311;\">" + badgeName + "</strong></p>" +
             "<p>Viziteaza profilul tau pentru a vedea toate insignele castigate.</p>"
@@ -193,10 +202,11 @@ public static class EmailTemplates
 
     private static (string, string) AchievementCompleted(Dictionary<string, string> d)
     {
-        var userName = d.GetValueOrDefault(UserName, "");
-        var achievementName = d.GetValueOrDefault(AchievementName, "");
+        var userName = H(d.GetValueOrDefault(UserName, ""));
+        var rawAchievementName = d.GetValueOrDefault(AchievementName, "");
+        var achievementName = H(rawAchievementName);
         return (
-            "Realizare completata: " + achievementName + "!",
+            "Realizare completata: " + rawAchievementName + "!",
             "<p>Felicitari, <strong>" + userName + "</strong>!</p>" +
             "<p>Ai completat realizarea: <strong style=\"color: #FCA311;\">" + achievementName + "</strong></p>" +
             "<p>Descopera ce alte realizari te asteapta pe Civiti.</p>"
@@ -205,7 +215,7 @@ public static class EmailTemplates
 
     private static (string, string) Welcome(Dictionary<string, string> d)
     {
-        var userName = d.GetValueOrDefault(UserName, "");
+        var userName = H(d.GetValueOrDefault(UserName, ""));
         return (
             "Bine ai venit pe Civiti!",
             "<p>Salut, <strong>" + userName + "</strong>!</p>" +

@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace Civiti.Api.Infrastructure.Email;
 
 /// <summary>
@@ -11,15 +13,19 @@ public static class EmailLayout
     /// </summary>
     public static string Wrap(string title, string bodyHtml, string? ctaUrl = null, string? ctaText = null)
     {
+        var safeTitle = WebUtility.HtmlEncode(title);
+        var safeCtaUrl = WebUtility.HtmlEncode(ctaUrl ?? "");
+        var safeCtaText = WebUtility.HtmlEncode(ctaText ?? "");
+
         var ctaBlock = !string.IsNullOrEmpty(ctaUrl) && !string.IsNullOrEmpty(ctaText)
             ? $"""
                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 24px auto;">
                  <tr>
                    <td style="border-radius: 6px; background-color: #FCA311;">
-                     <a href="{ctaUrl}" target="_blank"
+                     <a href="{safeCtaUrl}" target="_blank"
                         style="display: inline-block; padding: 14px 32px; font-family: 'Fira Sans', Arial, sans-serif;
                                font-size: 16px; font-weight: 600; color: #14213D; text-decoration: none;">
-                       {ctaText}
+                       {safeCtaText}
                      </a>
                    </td>
                  </tr>
@@ -33,7 +39,7 @@ public static class EmailLayout
                 <head>
                   <meta charset="utf-8">
                   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>{title}</title>
+                  <title>{safeTitle}</title>
                 </head>
                 <body style="margin: 0; padding: 0; background-color: #E5E5E5; font-family: 'Fira Sans', Arial, sans-serif;">
                   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"
@@ -59,7 +65,7 @@ public static class EmailLayout
                             <td style="padding: 32px;">
                               <h2 style="margin: 0 0 16px; color: #14213D; font-family: 'Fira Sans', Arial, sans-serif;
                                          font-size: 20px; font-weight: 600;">
-                                {title}
+                                {safeTitle}
                               </h2>
                               <div style="color: #333333; font-size: 15px; line-height: 1.6;">
                                 {bodyHtml}

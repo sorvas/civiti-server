@@ -4,6 +4,7 @@ namespace Civiti.Api.Services.Interfaces;
 
 public interface IGamificationService
 {
+    Task FlushPendingNotificationsAsync();
     Task AwardPointsAsync(Guid userId, int points, string reason, bool saveChanges = true);
     Task DeductPointsAsync(Guid userId, int points, string reason, bool saveChanges = true);
     Task CheckAndAwardBadgesAsync(Guid userId, bool saveChanges = true);
