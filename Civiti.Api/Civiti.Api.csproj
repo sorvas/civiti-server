@@ -9,6 +9,7 @@
         <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Civiti.Api.xml</DocumentationFile>
         <NoWarn>$(NoWarn);1591</NoWarn>
         <AssemblyName>Civiti.Api</AssemblyName>
+        <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.AspNetCore.Http.Validation.Generated</InterceptorsNamespaces>
     </PropertyGroup>
 
     <ItemGroup>

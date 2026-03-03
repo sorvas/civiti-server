@@ -287,7 +287,7 @@ public class IssueService(
             {
             // Get user profile
             UserProfile? userProfile = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (userProfile == null)
             {
@@ -592,7 +592,7 @@ public class IssueService(
         {
             // Get user profile
             UserProfile? userProfile = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (userProfile == null)
             {
@@ -695,7 +695,7 @@ public class IssueService(
             {
                 // Get user profile
                 UserProfile? userProfile = await context.UserProfiles
-                    .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                    .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
                 if (userProfile == null)
                 {
@@ -875,7 +875,7 @@ public class IssueService(
             {
                 // Get user profile
                 UserProfile? userProfile = await context.UserProfiles
-                    .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                    .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
                 if (userProfile == null)
                 {
@@ -1138,7 +1138,7 @@ public class IssueService(
         {
             // Pre-validate outside the transaction
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {
@@ -1313,7 +1313,7 @@ public class IssueService(
         {
             // Pre-validate outside the transaction
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {

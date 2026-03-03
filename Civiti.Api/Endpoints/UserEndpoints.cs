@@ -201,6 +201,7 @@ public static class UserEndpoints
         })
         .WithName("DeleteUserAccount")
         .WithSummary("Delete user account (soft delete)")
+        .WithDescription("Permanently soft-deletes the authenticated user's account. All personal data (email, name, phone, photo, location, residence type) is anonymized and the Supabase Auth account is removed (best-effort). The user's issues and comments are preserved with author shown as 'Deleted User'. This action cannot be undone.")
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status401Unauthorized)
         .Produces(StatusCodes.Status404NotFound);
@@ -333,6 +334,7 @@ public static class UserEndpoints
             return Results.Ok(issue);
         })
         .AddEndpointFilter<ValidationFilter<UpdateIssueRequest>>()
+        .DisableValidation()
         .WithName("UpdateUserIssue")
         .WithSummary("Update and resubmit an issue")
         .WithDescription("Allows the authenticated user to edit their own issue. Cannot edit Cancelled or Resolved issues. After editing, the issue status is set to 'UnderReview' for admin re-approval.")

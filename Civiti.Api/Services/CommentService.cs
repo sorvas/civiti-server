@@ -143,7 +143,7 @@ public class CommentService(
         {
             // Get user profile
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {
@@ -351,7 +351,7 @@ public class CommentService(
         try
         {
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {
@@ -413,7 +413,7 @@ public class CommentService(
         {
             // Pre-validate outside the transaction
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {
@@ -626,7 +626,7 @@ public class CommentService(
         {
             // Pre-validate outside the transaction
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {
@@ -744,7 +744,7 @@ public class CommentService(
         {
             // Pre-validate outside the transaction
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {

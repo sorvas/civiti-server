@@ -4,7 +4,7 @@ using Civiti.Api.Services.Interfaces;
 
 namespace Civiti.Api.Services;
 
-public class SupabaseService(ILogger<SupabaseService> logger, SupabaseConfiguration supabaseConfig) : ISupabaseService
+public class SupabaseService(ILogger<SupabaseService> logger, SupabaseConfiguration supabaseConfig, IHttpClientFactory httpClientFactory) : ISupabaseService
 {
     public bool ValidateToken(string token)
     {
@@ -150,14 +150,52 @@ public class SupabaseService(ILogger<SupabaseService> logger, SupabaseConfigurat
             // Simple health check - verify Supabase URL is reachable
             using HttpClient httpClient = new();
             httpClient.Timeout = TimeSpan.FromSeconds(5);
-            
+
             HttpResponseMessage response = await httpClient.GetAsync($"{supabaseConfig.Url}/auth/v1/health");
-            
+
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Supabase health check failed");
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteAuthUserAsync(string supabaseUserId)
+    {
+        if (!supabaseConfig.HasServiceRoleKey)
+        {
+            logger.LogWarning("Cannot delete Supabase auth user {SupabaseUserId}: ServiceRoleKey not configured", supabaseUserId);
+            return false;
+        }
+
+        try
+        {
+            using HttpClient httpClient = httpClientFactory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(10);
+
+            using HttpRequestMessage request = new(HttpMethod.Delete,
+                $"{supabaseConfig.Url}/auth/v1/admin/users/{supabaseUserId}");
+            request.Headers.Add("Authorization", $"Bearer {supabaseConfig.ServiceRoleKey}");
+            request.Headers.Add("apikey", supabaseConfig.ServiceRoleKey);
+
+            HttpResponseMessage response = await httpClient.SendAsync(request);
+
+            if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                logger.LogInformation("Supabase auth user deleted: {SupabaseUserId} (status: {StatusCode})",
+                    supabaseUserId, response.StatusCode);
+                return true;
+            }
+
+            logger.LogWarning("Failed to delete Supabase auth user {SupabaseUserId}: {StatusCode}",
+                supabaseUserId, response.StatusCode);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error deleting Supabase auth user: {SupabaseUserId}", supabaseUserId);
             return false;
         }
     }

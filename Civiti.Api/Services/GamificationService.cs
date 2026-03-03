@@ -656,7 +656,8 @@ public class GamificationService(
     {
         try
         {
-            IQueryable<UserProfile> query = context.UserProfiles.AsNoTracking();
+            IQueryable<UserProfile> query = context.UserProfiles.AsNoTracking()
+                .Where(u => !u.IsDeleted);
 
             // Apply period filter
             if (period != "all")

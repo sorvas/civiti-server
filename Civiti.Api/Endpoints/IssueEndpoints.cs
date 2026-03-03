@@ -160,6 +160,7 @@ public static class IssueEndpoints
         .WithSummary("Create a new issue (requires authentication)")
         .WithDescription("Creates a new civic issue report. The issue will be placed in pending status and requires admin approval before becoming publicly visible. Users earn gamification points for creating issues. Rate limited to 10 issues per hour per user to prevent spam.")
         .AddEndpointFilter<ValidationFilter<CreateIssueRequest>>()
+        .DisableValidation()
         .Produces<CreateIssueResponse>(201)
         .Produces(400)
         .Produces(401)

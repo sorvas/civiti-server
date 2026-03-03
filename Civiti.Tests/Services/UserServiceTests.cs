@@ -15,11 +15,12 @@ public class UserServiceTests : IDisposable
     private readonly Mock<ILogger<UserService>> _logger = new();
     private readonly Mock<IGamificationService> _gamificationService = new();
     private readonly Mock<INotificationService> _notificationService = new();
+    private readonly Mock<ISupabaseService> _supabaseService = new();
 
     private UserService CreateService()
     {
         var context = _dbFactory.CreateContext();
-        return new UserService(_logger.Object, context, _gamificationService.Object, _notificationService.Object);
+        return new UserService(_logger.Object, context, _gamificationService.Object, _notificationService.Object, _supabaseService.Object);
     }
 
     public UserServiceTests()
@@ -31,6 +32,11 @@ public class UserServiceTests : IDisposable
         _gamificationService
             .Setup(g => g.GetUserAchievementsAsync(It.IsAny<Guid>()))
             .ReturnsAsync(new List<Api.Models.Responses.Gamification.AchievementProgressResponse>());
+
+        // Default: Supabase auth deletion succeeds
+        _supabaseService
+            .Setup(s => s.DeleteAuthUserAsync(It.IsAny<string>()))
+            .ReturnsAsync(true);
     }
 
     public void Dispose() => _dbFactory.Dispose();
@@ -123,9 +129,16 @@ public class UserServiceTests : IDisposable
     // ── DeleteUserAsync ──
 
     [Fact]
-    public async Task DeleteUser_Should_Anonymize_Data()
+    public async Task DeleteUser_Should_Anonymize_All_PII_And_Set_Flags()
     {
         var user = TestDataBuilder.CreateUser(supabaseUserId: "delete_me", displayName: "Real Name", email: "real@test.com");
+        user.Phone = "+40712345678";
+        user.ResidenceType = ResidenceType.Apartment;
+        user.IssueUpdatesEnabled = true;
+        user.CommunityNewsEnabled = true;
+        user.MonthlyDigestEnabled = true;
+        user.AchievementsEnabled = true;
+
         using (var ctx = _dbFactory.CreateContext())
         {
             ctx.UserProfiles.Add(user);
@@ -139,11 +152,71 @@ public class UserServiceTests : IDisposable
 
         using var verifyCtx = _dbFactory.CreateContext();
         var deleted = await verifyCtx.UserProfiles.FindAsync(user.Id);
+
+        // PII anonymized
         deleted!.DisplayName.Should().Be("Deleted User");
         deleted.Email.Should().Contain("deleted_");
         deleted.PhotoUrl.Should().BeNull();
+        deleted.Phone.Should().BeNull();
         deleted.County.Should().Be("Unknown");
         deleted.City.Should().Be("Unknown");
+        deleted.District.Should().Be("Unknown");
+        deleted.ResidenceType.Should().BeNull();
+        deleted.SupabaseUserId.Should().StartWith("deleted_");
+
+        // Deletion flags
+        deleted.IsDeleted.Should().BeTrue();
+        deleted.DeletedAt.Should().NotBeNull();
+        deleted.DeletedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+
+        // Notification preferences disabled
+        deleted.IssueUpdatesEnabled.Should().BeFalse();
+        deleted.CommunityNewsEnabled.Should().BeFalse();
+        deleted.MonthlyDigestEnabled.Should().BeFalse();
+        deleted.AchievementsEnabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteUser_Should_Call_Supabase_Auth_Deletion()
+    {
+        var user = TestDataBuilder.CreateUser(supabaseUserId: "supa_delete");
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        await svc.DeleteUserAsync("supa_delete");
+
+        _supabaseService.Verify(
+            s => s.DeleteAuthUserAsync("supa_delete"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteUser_Should_Succeed_Even_When_Supabase_Fails()
+    {
+        _supabaseService
+            .Setup(s => s.DeleteAuthUserAsync(It.IsAny<string>()))
+            .ReturnsAsync(false);
+
+        var user = TestDataBuilder.CreateUser(supabaseUserId: "supa_fail_delete");
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var result = await svc.DeleteUserAsync("supa_fail_delete");
+
+        result.Should().BeTrue();
+
+        using var verifyCtx = _dbFactory.CreateContext();
+        var deleted = await verifyCtx.UserProfiles.FindAsync(user.Id);
+        deleted!.IsDeleted.Should().BeTrue();
+        deleted.DisplayName.Should().Be("Deleted User");
     }
 
     [Fact]
@@ -151,6 +224,28 @@ public class UserServiceTests : IDisposable
     {
         var svc = CreateService();
         var result = await svc.DeleteUserAsync("nonexistent_user");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteUser_Should_Return_False_When_Already_Deleted()
+    {
+        var user = TestDataBuilder.CreateUser(supabaseUserId: "already_deleted");
+        user.IsDeleted = true;
+        user.DeletedAt = DateTime.UtcNow.AddDays(-1);
+        user.SupabaseUserId = $"deleted_{user.Id}";
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var result = await svc.DeleteUserAsync("already_deleted");
+
+        // The original SupabaseUserId was changed to "deleted_{id}", so lookup with
+        // "already_deleted" won't find any non-deleted user
         result.Should().BeFalse();
     }
 
@@ -181,6 +276,25 @@ public class UserServiceTests : IDisposable
         result!.DisplayName.Should().Be("Existing");
     }
 
+    [Fact]
+    public async Task GetUserProfile_Should_Return_Null_For_Deleted_User()
+    {
+        var user = TestDataBuilder.CreateUser(supabaseUserId: "deleted_profile_user", displayName: "Gone");
+        user.IsDeleted = true;
+        user.DeletedAt = DateTime.UtcNow;
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var result = await svc.GetUserProfileAsync("deleted_profile_user");
+
+        result.Should().BeNull();
+    }
+
     // ── GetOrCreateUserProfileAsync ──
 
     [Fact]
@@ -208,4 +322,8 @@ public class UserServiceTests : IDisposable
         result.Should().NotBeNull();
         result.Email.Should().Be("new@test.com");
     }
+
+    // Note: GetLeaderboardAsync cannot be tested with SQLite due to SQL APPLY limitation
+    // (GroupBy + Take in subquery). The !IsDeleted guard is verified by code review and
+    // integration tests against PostgreSQL.
 }

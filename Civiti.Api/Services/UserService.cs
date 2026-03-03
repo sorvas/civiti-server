@@ -15,7 +15,8 @@ public class UserService(
     ILogger<UserService> logger,
     CivitiDbContext context,
     IGamificationService gamificationService,
-    INotificationService notificationService)
+    INotificationService notificationService,
+    ISupabaseService supabaseService)
     : IUserService
 {
     public async Task<UserGamificationResponse> GetUserGamificationAsync(string supabaseUserId)
@@ -24,7 +25,7 @@ public class UserService(
         {
             UserProfile? user = await context.UserProfiles
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {
@@ -77,7 +78,7 @@ public class UserService(
             // Use AsNoTracking since we only need to read user data for the response
             UserProfile? user = await context.UserProfiles
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {
@@ -291,7 +292,7 @@ public class UserService(
         try
         {
             UserProfile? existingUser = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (existingUser != null)
             {
@@ -363,7 +364,7 @@ public class UserService(
         try
         {
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {
@@ -421,7 +422,8 @@ public class UserService(
     {
         try
         {
-            IQueryable<UserProfile> query = context.UserProfiles.AsNoTracking();
+            IQueryable<UserProfile> query = context.UserProfiles.AsNoTracking()
+                .Where(u => !u.IsDeleted);
 
             // Apply period filter
             if (period != "all")
@@ -518,26 +520,47 @@ public class UserService(
         try
         {
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
 
             if (user == null)
             {
-                logger.LogWarning("User not found for deletion: {SupabaseUserId}", supabaseUserId);
+                logger.LogWarning("User not found for deletion (or already deleted): {SupabaseUserId}", supabaseUserId);
                 return false;
             }
 
-            // Soft-delete - anonymize the data
+            // Best-effort: delete the Supabase Auth account so the user can't log in again
+            var supabaseDeleted = await supabaseService.DeleteAuthUserAsync(supabaseUserId);
+            if (!supabaseDeleted)
+            {
+                logger.LogWarning("Supabase auth deletion failed for user {UserId}, proceeding with local soft-delete", user.Id);
+            }
+
+            // Anonymize ALL PII fields
             user.Email = $"deleted_{user.Id}@civica.ro";
             user.DisplayName = "Deleted User";
             user.PhotoUrl = null;
+            user.Phone = null;
             user.County = "Unknown";
             user.City = "Unknown";
             user.District = "Unknown";
+            user.ResidenceType = null;
+            user.SupabaseUserId = $"deleted_{user.Id}";
+
+            // Disable all notification preferences
+            user.IssueUpdatesEnabled = false;
+            user.CommunityNewsEnabled = false;
+            user.MonthlyDigestEnabled = false;
+            user.AchievementsEnabled = false;
+
+            // Mark as deleted
+            user.IsDeleted = true;
+            user.DeletedAt = DateTime.UtcNow;
             user.UpdatedAt = DateTime.UtcNow;
 
             await context.SaveChangesAsync();
 
-            logger.LogInformation("Soft deleted user {UserId}", user.Id);
+            logger.LogInformation("Soft deleted user {UserId} (Supabase auth removed: {SupabaseDeleted})",
+                user.Id, supabaseDeleted);
             return true;
         }
         catch (Exception ex)

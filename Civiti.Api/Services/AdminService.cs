@@ -230,7 +230,7 @@ public class AdminService(
             }
 
             UserProfile? adminUser = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == adminUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == adminUserId && !u.IsDeleted);
 
             if (adminUser == null)
             {
@@ -355,7 +355,7 @@ public class AdminService(
             }
 
             UserProfile? adminUser = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == adminUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == adminUserId && !u.IsDeleted);
 
             if (adminUser == null)
             {
@@ -458,7 +458,7 @@ public class AdminService(
             }
 
             UserProfile? adminUser = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == adminUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == adminUserId && !u.IsDeleted);
 
             if (adminUser == null)
             {
@@ -600,7 +600,7 @@ public class AdminService(
             Dictionary<string, int> urgencyBreakdown = urgencyCountsRaw.ToDictionary(x => x.Urgency.ToString(), x => x.Count);
 
             // User statistics
-            var totalUsers = await context.UserProfiles.CountAsync();
+            var totalUsers = await context.UserProfiles.CountAsync(u => !u.IsDeleted);
             var activeUsersThisMonth = await context.Issues
                 .Where(i => i.CreatedAt >= monthStart)
                 .Select(i => i.UserId)
@@ -723,7 +723,7 @@ public class AdminService(
         try
         {
             UserProfile? adminUser = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == adminUserId);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == adminUserId && !u.IsDeleted);
 
             if (adminUser == null)
             {
