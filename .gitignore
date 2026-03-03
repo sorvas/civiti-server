@@ -1,5 +1,10 @@
 bin/
 obj/
+
+# Binary build artifacts (catches WSL2 backslash-path variants that bypass bin/ rule)
+*.dll
+*.exe
+*.pdb
 /packages/
 .idea/
 .nuget/

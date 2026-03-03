@@ -305,7 +305,14 @@ public class UserService(
         try
         {
             UserProfile? existingUser = await context.UserProfiles
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+
+            if (existingUser is { IsDeleted: true })
+            {
+                logger.LogWarning("Blocked profile re-creation for deleted user {SupabaseUserId}", supabaseUserId);
+                throw new InvalidOperationException("This account has been deleted.");
+            }
 
             if (existingUser != null)
             {
