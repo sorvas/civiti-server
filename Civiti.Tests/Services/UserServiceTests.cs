@@ -326,6 +326,49 @@ public class UserServiceTests : IDisposable
         result.Email.Should().Be("new@test.com");
     }
 
+    // ── Soft-delete re-creation guards ──
+
+    [Fact]
+    public async Task GetOrCreate_Should_Block_ReCreation_For_Deleted_User()
+    {
+        var user = TestDataBuilder.CreateUser(supabaseUserId: "deleted_user");
+        user.IsDeleted = true;
+        user.DeletedAt = DateTime.UtcNow.AddDays(-1);
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var act = () => svc.GetOrCreateUserProfileAsync("deleted_user", "x@test.com", "New Name", null);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("This account has been deleted.");
+    }
+
+    [Fact]
+    public async Task CreateUserProfile_Should_Block_ReCreation_For_Deleted_User()
+    {
+        var user = TestDataBuilder.CreateUser(supabaseUserId: "deleted_user_create");
+        user.IsDeleted = true;
+        user.DeletedAt = DateTime.UtcNow.AddDays(-1);
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var act = () => svc.CreateUserProfileAsync(
+            new CreateUserProfileRequest { DisplayName = "Reborn" },
+            "deleted_user_create",
+            "reborn@test.com");
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("This account has been deleted.");
+    }
+
     // Note: GetLeaderboardAsync cannot be tested with SQLite due to SQL APPLY limitation
     // (GroupBy + Take in subquery). The !IsDeleted guard is verified by code review and
     // integration tests against PostgreSQL.

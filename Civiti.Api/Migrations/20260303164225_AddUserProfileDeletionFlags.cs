@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -27,7 +27,8 @@ namespace Civiti.Api.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_UserProfiles_IsDeleted",
                 table: "UserProfiles",
-                column: "IsDeleted");
+                column: "IsDeleted",
+                filter: "\"IsDeleted\" = true");
         }
 
         /// <inheritdoc />
