@@ -4,6 +4,7 @@ using Civiti.Api.Services;
 using Civiti.Api.Services.Interfaces;
 using Civiti.Tests.Helpers;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -151,7 +152,9 @@ public class UserServiceTests : IDisposable
         result.Should().BeTrue();
 
         using var verifyCtx = _dbFactory.CreateContext();
-        var deleted = await verifyCtx.UserProfiles.FindAsync(user.Id);
+        var deleted = await verifyCtx.UserProfiles
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == user.Id);
 
         // PII anonymized
         deleted!.DisplayName.Should().Be("Deleted User");
@@ -214,7 +217,9 @@ public class UserServiceTests : IDisposable
         result.Should().BeTrue();
 
         using var verifyCtx = _dbFactory.CreateContext();
-        var deleted = await verifyCtx.UserProfiles.FindAsync(user.Id);
+        var deleted = await verifyCtx.UserProfiles
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == user.Id);
         deleted!.IsDeleted.Should().BeTrue();
         deleted.DisplayName.Should().Be("Deleted User");
     }
