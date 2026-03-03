@@ -194,13 +194,24 @@ public static class UserEndpoints
                 return Results.Unauthorized();
             }
 
-            UserGamificationResponse gamification = await userService.GetUserGamificationAsync(supabaseUserId);
-            return Results.Ok(gamification);
+            try
+            {
+                UserGamificationResponse gamification = await userService.GetUserGamificationAsync(supabaseUserId);
+                return Results.Ok(gamification);
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "This account has been deleted.")
+            {
+                return Results.Problem(
+                    detail: "This account has been deleted.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
         })
         .WithName("GetUserGamification")
         .WithSummary("Get user's gamification data")
         .Produces<UserGamificationResponse>()
-        .Produces(StatusCodes.Status401Unauthorized);
+        .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden);
 
         // DELETE /api/user/account
         group.MapDelete(ApiRoutes.User.Account, async (

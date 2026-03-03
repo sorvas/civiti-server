@@ -32,6 +32,12 @@ public class UserService(
 
             if (user == null)
             {
+                bool wasDeleted = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
+                if (wasDeleted)
+                    throw new InvalidOperationException("This account has been deleted.");
+
                 logger.LogWarning("User not found for Supabase ID: {SupabaseUserId}", supabaseUserId);
                 return new UserGamificationResponse();
             }
