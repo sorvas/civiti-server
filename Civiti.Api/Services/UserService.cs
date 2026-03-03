@@ -365,6 +365,10 @@ public class UserService(
         {
             throw; // Re-throw argument exceptions as-is
         }
+        catch (InvalidOperationException)
+        {
+            throw; // Re-throw domain exceptions (e.g. deleted account) as-is
+        }
         catch (DbUpdateException)
         {
             // Clear the failed entity from change tracker before re-throwing
