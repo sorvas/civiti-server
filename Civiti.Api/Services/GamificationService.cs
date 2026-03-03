@@ -44,7 +44,8 @@ public class GamificationService(
     {
         try
         {
-            UserProfile? user = await context.UserProfiles.FindAsync(userId);
+            UserProfile? user = await context.UserProfiles
+                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
             if (user == null)
             {
                 logger.LogWarning("User not found for awarding points: {UserId}", userId);
@@ -89,7 +90,8 @@ public class GamificationService(
     {
         try
         {
-            UserProfile? user = await context.UserProfiles.FindAsync(userId);
+            UserProfile? user = await context.UserProfiles
+                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
             if (user == null)
             {
                 logger.LogWarning("User not found for deducting points: {UserId}", userId);
@@ -131,7 +133,7 @@ public class GamificationService(
         {
             UserProfile? user = await context.UserProfiles
                 .Include(u => u.UserBadges)
-                .FirstOrDefaultAsync(u => u.Id == userId);
+                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
 
             if (user == null)
             {
@@ -286,7 +288,8 @@ public class GamificationService(
                         userId, userAchievement.Achievement.Title);
 
                     var capturedAchievementTitle = userAchievement.Achievement.Title;
-                    UserProfile? achiever = await context.UserProfiles.FindAsync(userId);
+                    UserProfile? achiever = await context.UserProfiles
+                        .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
                     if (achiever != null)
                     {
                         _pendingNotifications.Add(() => notificationService.NotifyAchievementCompletedAsync(achiever, capturedAchievementTitle));
