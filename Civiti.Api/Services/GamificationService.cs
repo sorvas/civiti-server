@@ -45,10 +45,17 @@ public class GamificationService(
         try
         {
             UserProfile? user = await context.UserProfiles
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null)
             {
                 logger.LogWarning("User not found for awarding points: {UserId}", userId);
+                return;
+            }
+
+            if (user.IsDeleted)
+            {
+                logger.LogDebug("Skipping point award for soft-deleted user: {UserId}", userId);
                 return;
             }
 
@@ -91,10 +98,17 @@ public class GamificationService(
         try
         {
             UserProfile? user = await context.UserProfiles
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.Id == userId);
             if (user == null)
             {
                 logger.LogWarning("User not found for deducting points: {UserId}", userId);
+                return;
+            }
+
+            if (user.IsDeleted)
+            {
+                logger.LogDebug("Skipping point deduction for soft-deleted user: {UserId}", userId);
                 return;
             }
 
@@ -132,12 +146,19 @@ public class GamificationService(
         try
         {
             UserProfile? user = await context.UserProfiles
+                .IgnoreQueryFilters()
                 .Include(u => u.UserBadges)
                 .FirstOrDefaultAsync(u => u.Id == userId);
 
             if (user == null)
             {
                 logger.LogWarning("User not found for badge check: {UserId}", userId);
+                return;
+            }
+
+            if (user.IsDeleted)
+            {
+                logger.LogDebug("Skipping badge check for soft-deleted user: {UserId}", userId);
                 return;
             }
 

@@ -291,20 +291,15 @@ public class IssueService(
 
             try
             {
-            // Get user profile
+            // Get user profile (single query bypassing global filter to distinguish deleted vs missing)
             UserProfile? userProfile = await context.UserProfiles
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
             if (userProfile == null)
-            {
-                bool wasDeleted = await context.UserProfiles
-                    .IgnoreQueryFilters()
-                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
-                if (wasDeleted)
-                    throw new InvalidOperationException("This account has been deleted.");
-
                 throw new InvalidOperationException("User profile not found");
-            }
+            if (userProfile.IsDeleted)
+                throw new InvalidOperationException("This account has been deleted.");
 
             // Create the issue
             Issue issue = new()
@@ -607,16 +602,14 @@ public class IssueService(
     {
         try
         {
-            // Get user profile
+            // Get user profile (single query bypassing global filter to distinguish deleted vs missing)
             UserProfile? userProfile = await context.UserProfiles
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
-            if (userProfile == null)
+            if (userProfile == null || userProfile.IsDeleted)
             {
-                bool wasDeleted = await context.UserProfiles
-                    .IgnoreQueryFilters()
-                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
-                if (wasDeleted)
+                if (userProfile?.IsDeleted == true)
                     throw new InvalidOperationException("This account has been deleted.");
 
                 return new PagedResult<IssueListResponse>
@@ -719,20 +712,15 @@ public class IssueService(
 
             try
             {
-                // Get user profile
+                // Get user profile (single query bypassing global filter to distinguish deleted vs missing)
                 UserProfile? userProfile = await context.UserProfiles
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
                 if (userProfile == null)
-                {
-                    bool wasDeleted = await context.UserProfiles
-                        .IgnoreQueryFilters()
-                        .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
-                    if (wasDeleted)
-                        return (false, "This account has been deleted.");
-
                     return (false, "User profile not found");
-                }
+                if (userProfile.IsDeleted)
+                    return (false, "This account has been deleted.");
 
                 // Get the issue
                 Issue? issue = await context.Issues
@@ -905,20 +893,15 @@ public class IssueService(
 
             try
             {
-                // Get user profile
+                // Get user profile (single query bypassing global filter to distinguish deleted vs missing)
                 UserProfile? userProfile = await context.UserProfiles
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
                 if (userProfile == null)
-                {
-                    bool wasDeleted = await context.UserProfiles
-                        .IgnoreQueryFilters()
-                        .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
-                    if (wasDeleted)
-                        return (false, null, "This account has been deleted.");
-
                     return (false, null, "User profile not found");
-                }
+                if (userProfile.IsDeleted)
+                    return (false, null, "This account has been deleted.");
 
                 // Get the issue with related data
                 Issue? issue = await context.Issues
@@ -1181,20 +1164,15 @@ public class IssueService(
     {
         try
         {
-            // Pre-validate outside the transaction
+            // Pre-validate outside the transaction (single query bypassing global filter to distinguish deleted vs missing)
             UserProfile? user = await context.UserProfiles
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
             if (user == null)
-            {
-                bool wasDeleted = await context.UserProfiles
-                    .IgnoreQueryFilters()
-                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
-                if (wasDeleted)
-                    return (false, "This account has been deleted.");
-
                 return (false, "User not found");
-            }
+            if (user.IsDeleted)
+                return (false, "This account has been deleted.");
 
             Issue? issue = await context.Issues
                 .FirstOrDefaultAsync(i => i.Id == issueId);
@@ -1361,20 +1339,15 @@ public class IssueService(
     {
         try
         {
-            // Pre-validate outside the transaction
+            // Pre-validate outside the transaction (single query bypassing global filter to distinguish deleted vs missing)
             UserProfile? user = await context.UserProfiles
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
             if (user == null)
-            {
-                bool wasDeleted = await context.UserProfiles
-                    .IgnoreQueryFilters()
-                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
-                if (wasDeleted)
-                    return (false, "This account has been deleted.");
-
                 return (false, "User not found");
-            }
+            if (user.IsDeleted)
+                return (false, "This account has been deleted.");
 
             Issue? issue = await context.Issues
                 .FirstOrDefaultAsync(i => i.Id == issueId);

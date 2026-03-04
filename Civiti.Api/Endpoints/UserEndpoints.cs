@@ -397,6 +397,7 @@ public static class UserEndpoints
             return Results.Ok(issue);
         })
         .AddEndpointFilter<ValidationFilter<UpdateIssueRequest>>()
+        // Disable ASP.NET Core 9's built-in model validation to avoid double-validation with our FluentValidation filter above
         .DisableValidation()
         .WithName("UpdateUserIssue")
         .WithSummary("Update and resubmit an issue")
