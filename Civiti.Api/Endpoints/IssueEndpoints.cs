@@ -134,7 +134,7 @@ public static class IssueEndpoints
         .Produces(404);
 
         // POST /api/issues
-        group.MapPost("/", [Authorize] async Task<Results<Created<CreateIssueResponse>, BadRequest<string>, UnauthorizedHttpResult>> (
+        group.MapPost("/", [Authorize] async Task<Results<Created<CreateIssueResponse>, BadRequest<string>, UnauthorizedHttpResult, ProblemHttpResult>> (
             IIssueService issueService,
             CreateIssueRequest request,
             HttpContext httpContext) =>
@@ -151,6 +151,13 @@ public static class IssueEndpoints
                 CreateIssueResponse result = await issueService.CreateIssueAsync(request, supabaseUserId);
                 return TypedResults.Created($"/api/issues/{result.Id}", result);
             }
+            catch (InvalidOperationException ex) when (ex.Message == "This account has been deleted.")
+            {
+                return TypedResults.Problem(
+                    detail: "This account has been deleted.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
             catch (InvalidOperationException ex)
             {
                 return TypedResults.BadRequest(ex.Message);
@@ -160,9 +167,11 @@ public static class IssueEndpoints
         .WithSummary("Create a new issue (requires authentication)")
         .WithDescription("Creates a new civic issue report. The issue will be placed in pending status and requires admin approval before becoming publicly visible. Users earn gamification points for creating issues. Rate limited to 10 issues per hour per user to prevent spam.")
         .AddEndpointFilter<ValidationFilter<CreateIssueRequest>>()
+        .DisableValidation()
         .Produces<CreateIssueResponse>(201)
         .Produces(400)
         .Produces(401)
+        .Produces(StatusCodes.Status403Forbidden)
         .Produces(429);
 
         // POST /api/issues/{id}/email-sent
@@ -260,7 +269,7 @@ public static class IssueEndpoints
         .Produces(404);
 
         // POST /api/issues/{id}/vote
-        group.MapPost(ApiRoutes.Issues.Vote, [Authorize] async Task<Results<Ok, BadRequest<string>, NotFound, UnauthorizedHttpResult>> (
+        group.MapPost(ApiRoutes.Issues.Vote, [Authorize] async Task<Results<Ok, BadRequest<string>, NotFound, UnauthorizedHttpResult, ProblemHttpResult>> (
             IIssueService issueService,
             HttpContext httpContext,
             Guid id) =>
@@ -279,6 +288,10 @@ public static class IssueEndpoints
                 return error switch
                 {
                     "Issue not found" => TypedResults.NotFound(),
+                    "This account has been deleted." => TypedResults.Problem(
+                        detail: "This account has been deleted.",
+                        statusCode: StatusCodes.Status403Forbidden,
+                        title: "Account Deleted"),
                     _ => TypedResults.BadRequest(error)
                 };
             }
@@ -291,10 +304,11 @@ public static class IssueEndpoints
         .Produces(200)
         .Produces(400)
         .Produces(401)
+        .Produces(StatusCodes.Status403Forbidden)
         .Produces(404);
 
         // DELETE /api/issues/{id}/vote
-        group.MapDelete(ApiRoutes.Issues.Vote, [Authorize] async Task<Results<Ok, BadRequest<string>, NotFound, UnauthorizedHttpResult>> (
+        group.MapDelete(ApiRoutes.Issues.Vote, [Authorize] async Task<Results<Ok, BadRequest<string>, NotFound, UnauthorizedHttpResult, ProblemHttpResult>> (
             IIssueService issueService,
             HttpContext httpContext,
             Guid id) =>
@@ -313,6 +327,10 @@ public static class IssueEndpoints
                 return error switch
                 {
                     "Issue not found" => TypedResults.NotFound(),
+                    "This account has been deleted." => TypedResults.Problem(
+                        detail: "This account has been deleted.",
+                        statusCode: StatusCodes.Status403Forbidden,
+                        title: "Account Deleted"),
                     _ => TypedResults.BadRequest(error)
                 };
             }
@@ -325,6 +343,7 @@ public static class IssueEndpoints
         .Produces(200)
         .Produces(400)
         .Produces(401)
+        .Produces(StatusCodes.Status403Forbidden)
         .Produces(404);
     }
 }

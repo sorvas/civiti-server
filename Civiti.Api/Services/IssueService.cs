@@ -44,7 +44,6 @@ public class IssueService(
 
             IQueryable<Issue> query = context.Issues
                 .Include(i => i.Photos)
-                .Include(i => i.User)
                 .AsQueryable();
 
             // Apply status filter - default to Active only if not specified
@@ -257,12 +256,19 @@ public class IssueService(
                     Email = ia.Authority?.Email ?? ia.CustomEmail ?? string.Empty,
                     IsPredefined = ia.AuthorityId.HasValue
                 }).ToList(),
-                User = new UserBasicResponse
-                {
-                    Id = issue.User.Id,
-                    Name = issue.User.DisplayName,
-                    PhotoUrl = issue.User.PhotoUrl
-                }
+                User = issue.User is not null
+                    ? new UserBasicResponse
+                    {
+                        Id = issue.User.Id,
+                        Name = issue.User.DisplayName,
+                        PhotoUrl = issue.User.PhotoUrl
+                    }
+                    : new UserBasicResponse
+                    {
+                        Id = Guid.Empty,
+                        Name = "Deleted User",
+                        PhotoUrl = null
+                    }
             };
         }
         catch (Exception ex)
@@ -291,7 +297,13 @@ public class IssueService(
 
             if (userProfile == null)
             {
-                throw new InvalidOperationException($"User profile not found for Supabase ID: {supabaseUserId}");
+                bool wasDeleted = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
+                if (wasDeleted)
+                    throw new InvalidOperationException("This account has been deleted.");
+
+                throw new InvalidOperationException("User profile not found");
             }
 
             // Create the issue
@@ -478,6 +490,11 @@ public class IssueService(
                 CreatedAt = issue.CreatedAt
             };
         }
+            catch (InvalidOperationException)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
@@ -596,6 +613,12 @@ public class IssueService(
 
             if (userProfile == null)
             {
+                bool wasDeleted = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
+                if (wasDeleted)
+                    throw new InvalidOperationException("This account has been deleted.");
+
                 return new PagedResult<IssueListResponse>
                 {
                     Items = [],
@@ -608,7 +631,6 @@ public class IssueService(
 
             IQueryable<Issue> query = context.Issues
                 .Include(i => i.Photos)
-                .Include(i => i.User)
                 .Where(i => i.UserId == userProfile.Id)
                 .AsQueryable();
 
@@ -669,6 +691,10 @@ public class IssueService(
                 TotalPages = (int)Math.Ceiling((double)totalItems / request.PageSize)
             };
         }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error getting user issues for {SupabaseUserId}", supabaseUserId);
@@ -699,6 +725,12 @@ public class IssueService(
 
                 if (userProfile == null)
                 {
+                    bool wasDeleted = await context.UserProfiles
+                        .IgnoreQueryFilters()
+                        .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
+                    if (wasDeleted)
+                        return (false, "This account has been deleted.");
+
                     return (false, "User profile not found");
                 }
 
@@ -735,7 +767,7 @@ public class IssueService(
                     // Get the issue owner's profile to update their stats
                     UserProfile? issueOwner = issue.UserId == userProfile.Id
                         ? userProfile
-                        : await context.UserProfiles.FindAsync(issue.UserId);
+                        : await context.UserProfiles.FirstOrDefaultAsync(u => u.Id == issue.UserId);
 
                     if (issueOwner != null)
                     {
@@ -879,6 +911,12 @@ public class IssueService(
 
                 if (userProfile == null)
                 {
+                    bool wasDeleted = await context.UserProfiles
+                        .IgnoreQueryFilters()
+                        .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
+                    if (wasDeleted)
+                        return (false, null, "This account has been deleted.");
+
                     return (false, null, "User profile not found");
                 }
 
@@ -1108,12 +1146,19 @@ public class IssueService(
                         Email = ia.Authority?.Email ?? ia.CustomEmail ?? string.Empty,
                         IsPredefined = ia.AuthorityId.HasValue
                     }).ToList(),
-                    User = new UserBasicResponse
-                    {
-                        Id = issue.User.Id,
-                        Name = issue.User.DisplayName,
-                        PhotoUrl = issue.User.PhotoUrl
-                    }
+                    User = issue.User is not null
+                        ? new UserBasicResponse
+                        {
+                            Id = issue.User.Id,
+                            Name = issue.User.DisplayName,
+                            PhotoUrl = issue.User.PhotoUrl
+                        }
+                        : new UserBasicResponse
+                        {
+                            Id = Guid.Empty,
+                            Name = "Deleted User",
+                            PhotoUrl = null
+                        }
                 };
 
                 // Commit only after everything is ready
@@ -1142,11 +1187,15 @@ public class IssueService(
 
             if (user == null)
             {
+                bool wasDeleted = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
+                if (wasDeleted)
+                    return (false, "This account has been deleted.");
+
                 return (false, "User not found");
             }
 
-            // Don't include User to avoid tracking UserProfile - gamification uses FindAsync
-            // which would return the tracked entity, causing double points on retry
             Issue? issue = await context.Issues
                 .FirstOrDefaultAsync(i => i.Id == issueId);
 
@@ -1230,15 +1279,16 @@ public class IssueService(
                 }
 
                 // Increment CommunityVotes on the issue author's profile (votes received)
+                // Guard against soft-deleted authors explicitly since ExecuteUpdateAsync bypasses global filters
                 await context.UserProfiles
-                    .Where(u => u.Id == issue.UserId)
+                    .Where(u => u.Id == issue.UserId && !u.IsDeleted)
                     .ExecuteUpdateAsync(u => u
                         .SetProperty(x => x.CommunityVotes, x => x.CommunityVotes + 1)
                         .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
 
                 // Increment VotesGiven on the voter's profile
                 await context.UserProfiles
-                    .Where(u => u.Id == user.Id)
+                    .Where(u => u.Id == user.Id && !u.IsDeleted)
                     .ExecuteUpdateAsync(u => u
                         .SetProperty(x => x.VotesGiven, x => x.VotesGiven + 1)
                         .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
@@ -1317,11 +1367,15 @@ public class IssueService(
 
             if (user == null)
             {
+                bool wasDeleted = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
+                if (wasDeleted)
+                    return (false, "This account has been deleted.");
+
                 return (false, "User not found");
             }
 
-            // Don't include User to avoid tracking UserProfile - gamification uses FindAsync
-            // which would return the tracked entity, causing double points on retry
             Issue? issue = await context.Issues
                 .FirstOrDefaultAsync(i => i.Id == issueId);
 
@@ -1369,15 +1423,16 @@ public class IssueService(
                     .ExecuteUpdateAsync(i => i.SetProperty(x => x.CommunityVotes, x => Math.Max(0, x.CommunityVotes - 1)));
 
                 // Decrement CommunityVotes on the issue author's profile (votes received)
+                // Guard against soft-deleted authors explicitly since ExecuteUpdateAsync bypasses global filters
                 await context.UserProfiles
-                    .Where(u => u.Id == issue.UserId)
+                    .Where(u => u.Id == issue.UserId && !u.IsDeleted)
                     .ExecuteUpdateAsync(u => u
                         .SetProperty(x => x.CommunityVotes, x => Math.Max(0, x.CommunityVotes - 1))
                         .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
 
                 // Decrement VotesGiven on the voter's profile
                 await context.UserProfiles
-                    .Where(u => u.Id == user.Id)
+                    .Where(u => u.Id == user.Id && !u.IsDeleted)
                     .ExecuteUpdateAsync(u => u
                         .SetProperty(x => x.VotesGiven, x => Math.Max(0, x.VotesGiven - 1))
                         .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));

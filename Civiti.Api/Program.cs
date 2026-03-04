@@ -275,12 +275,25 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Supabase Service Role Key (optional - needed for admin user deletion)
+var supabaseServiceRoleKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
+if (string.IsNullOrWhiteSpace(supabaseServiceRoleKey))
+{
+    supabaseServiceRoleKey = builder.Configuration["Supabase:ServiceRoleKey"];
+}
+
+if (string.IsNullOrWhiteSpace(supabaseServiceRoleKey))
+{
+    Log.Warning("SUPABASE_SERVICE_ROLE_KEY not configured. Account deletion will soft-delete locally but cannot remove the Supabase Auth account.");
+}
+
 // Register Supabase configuration
 // Note: Validation already done above before JWT configuration
 builder.Services.AddSingleton(new SupabaseConfiguration
 {
     Url = supabaseUrl,
-    AnonKey = supabaseAnonKey
+    AnonKey = supabaseAnonKey,
+    ServiceRoleKey = supabaseServiceRoleKey ?? string.Empty
 });
 
 // Claude AI Configuration
@@ -404,6 +417,9 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // Validators
 builder.Services.AddValidatorsFromAssemblyContaining<Civiti.Api.Program>();
+
+// Built-in .NET 10 validation for route/query parameter validation via Data Annotations
+builder.Services.AddValidation();
 
 // HttpClient for development endpoints
 builder.Services.AddHttpClient();

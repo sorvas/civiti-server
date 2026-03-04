@@ -52,17 +52,27 @@ public static class UserEndpoints
             var signupMetadata = context.User.GetSignupMetadata();
 
             // Get existing profile or auto-create one (signup metadata only used during creation)
-            UserProfileResponse profile = await userService.GetOrCreateUserProfileAsync(
-                supabaseUserId, email, displayName, photoUrl, signupMetadata);
-
-            return Results.Ok(profile);
+            try
+            {
+                UserProfileResponse profile = await userService.GetOrCreateUserProfileAsync(
+                    supabaseUserId, email, displayName, photoUrl, signupMetadata);
+                return Results.Ok(profile);
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "This account has been deleted.")
+            {
+                return Results.Problem(
+                    detail: "This account has been deleted.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
         })
         .WithName("GetUserProfile")
         .WithSummary("Get user's complete profile")
         .WithDescription("Retrieves the complete profile for the authenticated user including personal information, gamification data (points, level, badges, achievements), and notification preferences. If no profile exists, one will be automatically created using data from the JWT token.")
         .Produces<UserProfileResponse>()
         .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status401Unauthorized);
+        .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden);
 
         // POST /api/user/profile - Create or update profile
         group.MapPost(ApiRoutes.User.Profile, async (
@@ -117,6 +127,13 @@ public static class UserEndpoints
                 }
                 throw; // Re-throw if profile still doesn't exist (genuine DB error)
             }
+            catch (InvalidOperationException ex) when (ex.Message == "This account has been deleted.")
+            {
+                return Results.Problem(
+                    detail: "This account has been deleted.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
             catch (InvalidOperationException ex) when (ex.Message == "User not found")
             {
                 // Profile was deleted between existence check and update
@@ -134,6 +151,7 @@ public static class UserEndpoints
         .Produces<UserProfileResponse>()
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden)
         .Produces(StatusCodes.Status404NotFound);
 
         // PUT /api/user/profile
@@ -153,6 +171,13 @@ public static class UserEndpoints
                 UserProfileResponse updatedProfile = await userService.UpdateUserProfileAsync(supabaseUserId, request);
                 return Results.Ok(updatedProfile);
             }
+            catch (InvalidOperationException ex) when (ex.Message == "This account has been deleted.")
+            {
+                return Results.Problem(
+                    detail: "This account has been deleted.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
             catch (InvalidOperationException)
             {
                 return Results.NotFound(new { error = "User profile not found" });
@@ -163,6 +188,7 @@ public static class UserEndpoints
         .WithDescription("Updates the authenticated user's profile information. Only provided fields will be updated; null fields are ignored. Returns the complete updated profile with gamification data.")
         .Produces<UserProfileResponse>()
         .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden)
         .Produces(StatusCodes.Status404NotFound);
 
         // GET /api/user/gamification
@@ -176,13 +202,24 @@ public static class UserEndpoints
                 return Results.Unauthorized();
             }
 
-            UserGamificationResponse gamification = await userService.GetUserGamificationAsync(supabaseUserId);
-            return Results.Ok(gamification);
+            try
+            {
+                UserGamificationResponse gamification = await userService.GetUserGamificationAsync(supabaseUserId);
+                return Results.Ok(gamification);
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "This account has been deleted.")
+            {
+                return Results.Problem(
+                    detail: "This account has been deleted.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
         })
         .WithName("GetUserGamification")
         .WithSummary("Get user's gamification data")
         .Produces<UserGamificationResponse>()
-        .Produces(StatusCodes.Status401Unauthorized);
+        .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden);
 
         // DELETE /api/user/account
         group.MapDelete(ApiRoutes.User.Account, async (
@@ -201,6 +238,7 @@ public static class UserEndpoints
         })
         .WithName("DeleteUserAccount")
         .WithSummary("Delete user account (soft delete)")
+        .WithDescription("Permanently soft-deletes the authenticated user's account. All personal data (email, name, phone, photo, location, residence type) is anonymized and the Supabase Auth account is removed (best-effort). The user's issues and comments are preserved with author shown as 'Deleted User'. This action cannot be undone.")
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status401Unauthorized)
         .Produces(StatusCodes.Status404NotFound);
@@ -239,13 +277,24 @@ public static class UserEndpoints
                 request.Status = parsedStatus;
             }
 
-            PagedResult<IssueListResponse> issues = await issueService.GetUserIssuesAsync(supabaseUserId, request);
-            return Results.Ok(issues);
+            try
+            {
+                PagedResult<IssueListResponse> issues = await issueService.GetUserIssuesAsync(supabaseUserId, request);
+                return Results.Ok(issues);
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "This account has been deleted.")
+            {
+                return Results.Problem(
+                    detail: "This account has been deleted.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
         })
         .WithName("GetUserIssues")
         .WithSummary("Get issues created by the authenticated user")
         .Produces<PagedResult<IssueListResponse>>()
-        .Produces(StatusCodes.Status401Unauthorized);
+        .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden);
 
         // GET /api/user/leaderboard
         group.MapGet(ApiRoutes.User.Leaderboard, async (
@@ -286,6 +335,10 @@ public static class UserEndpoints
             {
                 return error switch
                 {
+                    "This account has been deleted." => Results.Problem(
+                        detail: "This account has been deleted.",
+                        statusCode: StatusCodes.Status403Forbidden,
+                        title: "Account Deleted"),
                     "Issue not found" => Results.NotFound(new { error }),
                     "User profile not found" => Results.NotFound(new { error }),
                     "You can only change status of your own issues" => Results.Forbid(),
@@ -323,6 +376,10 @@ public static class UserEndpoints
             {
                 return error switch
                 {
+                    "This account has been deleted." => Results.Problem(
+                        detail: "This account has been deleted.",
+                        statusCode: StatusCodes.Status403Forbidden,
+                        title: "Account Deleted"),
                     "Issue not found" => Results.NotFound(new { error }),
                     "User profile not found" => Results.NotFound(new { error }),
                     "You can only edit your own issues" => Results.Forbid(),
@@ -333,6 +390,7 @@ public static class UserEndpoints
             return Results.Ok(issue);
         })
         .AddEndpointFilter<ValidationFilter<UpdateIssueRequest>>()
+        .DisableValidation()
         .WithName("UpdateUserIssue")
         .WithSummary("Update and resubmit an issue")
         .WithDescription("Allows the authenticated user to edit their own issue. Cannot edit Cancelled or Resolved issues. After editing, the issue status is set to 'UnderReview' for admin re-approval.")

@@ -60,8 +60,15 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
         builder.Property(u => u.ApprovalRate)
             .HasPrecision(5, 2)
             .HasDefaultValue(0);
-            
+
+        builder.Property(u => u.IsDeleted)
+            .HasDefaultValue(false);
+
+        builder.HasQueryFilter(u => !u.IsDeleted);
+
         // Indexes
+        builder.HasIndex(u => u.IsDeleted)
+            .HasFilter("\"IsDeleted\" = true");
         builder.HasIndex(u => u.District);
         builder.HasIndex(u => u.Points).IsDescending();
         builder.HasIndex(u => u.Level).IsDescending();

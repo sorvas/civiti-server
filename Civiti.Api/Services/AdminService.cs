@@ -86,7 +86,7 @@ public class AdminService(
                     CreatedAt = i.CreatedAt,
                     PhotoCount = i.Photos.Count,
                     EmailsSent = i.EmailsSent,
-                    UserName = i.User.DisplayName
+                    UserName = i.User != null ? i.User.DisplayName : "Deleted User"
                 })
                 .ToListAsync();
 
@@ -150,12 +150,12 @@ public class AdminService(
                 CreatedAt = issue.CreatedAt,
                 UpdatedAt = issue.UpdatedAt,
                 UserId = issue.UserId,
-                UserName = issue.User.DisplayName,
-                UserEmail = issue.User.Email,
-                UserPhone = issue.User.Phone,
+                UserName = issue.User?.DisplayName ?? "Deleted User",
+                UserEmail = issue.User?.Email ?? string.Empty,
+                UserPhone = issue.User?.Phone,
                 UserTotalIssues = userTotalIssues,
                 UserResolvedIssues = userResolvedIssues,
-                UserPoints = issue.User.Points,
+                UserPoints = issue.User?.Points ?? 0,
                 Photos = issue.Photos.Select(p => new AdminIssuePhotoResponse
                 {
                     Id = p.Id,
@@ -294,7 +294,13 @@ public class AdminService(
                 // Send notification to issue author
                 try
                 {
-                    await notificationService.NotifyIssueApprovedAsync(issue, issue.User);
+                    UserProfile? issueAuthor = await context.UserProfiles
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.Id == issue.UserId);
+                    if (issueAuthor != null)
+                    {
+                        await notificationService.NotifyIssueApprovedAsync(issue, issueAuthor);
+                    }
                 }
                 catch (Exception notifyEx)
                 {
@@ -600,7 +606,7 @@ public class AdminService(
             Dictionary<string, int> urgencyBreakdown = urgencyCountsRaw.ToDictionary(x => x.Urgency.ToString(), x => x.Count);
 
             // User statistics
-            var totalUsers = await context.UserProfiles.CountAsync();
+            var totalUsers = await context.UserProfiles.CountAsync(u => !u.IsDeleted);
             var activeUsersThisMonth = await context.Issues
                 .Where(i => i.CreatedAt >= monthStart)
                 .Select(i => i.UserId)
