@@ -291,7 +291,13 @@ public class IssueService(
 
             if (userProfile == null)
             {
-                throw new InvalidOperationException($"User profile not found for Supabase ID: {supabaseUserId}");
+                bool wasDeleted = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
+                if (wasDeleted)
+                    throw new InvalidOperationException("This account has been deleted.");
+
+                throw new InvalidOperationException("User profile not found");
             }
 
             // Create the issue

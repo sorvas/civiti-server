@@ -134,7 +134,7 @@ public static class IssueEndpoints
         .Produces(404);
 
         // POST /api/issues
-        group.MapPost("/", [Authorize] async Task<Results<Created<CreateIssueResponse>, BadRequest<string>, UnauthorizedHttpResult>> (
+        group.MapPost("/", [Authorize] async Task<Results<Created<CreateIssueResponse>, BadRequest<string>, UnauthorizedHttpResult, ProblemHttpResult>> (
             IIssueService issueService,
             CreateIssueRequest request,
             HttpContext httpContext) =>
@@ -151,6 +151,13 @@ public static class IssueEndpoints
                 CreateIssueResponse result = await issueService.CreateIssueAsync(request, supabaseUserId);
                 return TypedResults.Created($"/api/issues/{result.Id}", result);
             }
+            catch (InvalidOperationException ex) when (ex.Message == "This account has been deleted.")
+            {
+                return TypedResults.Problem(
+                    detail: "This account has been deleted.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
             catch (InvalidOperationException ex)
             {
                 return TypedResults.BadRequest(ex.Message);
@@ -164,6 +171,7 @@ public static class IssueEndpoints
         .Produces<CreateIssueResponse>(201)
         .Produces(400)
         .Produces(401)
+        .Produces(StatusCodes.Status403Forbidden)
         .Produces(429);
 
         // POST /api/issues/{id}/email-sent
