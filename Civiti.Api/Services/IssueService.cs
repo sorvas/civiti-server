@@ -626,7 +626,6 @@ public class IssueService(
 
             IQueryable<Issue> query = context.Issues
                 .Include(i => i.Photos)
-                .Include(i => i.User)
                 .Where(i => i.UserId == userProfile.Id)
                 .AsQueryable();
 

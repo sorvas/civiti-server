@@ -294,7 +294,13 @@ public class AdminService(
                 // Send notification to issue author
                 try
                 {
-                    await notificationService.NotifyIssueApprovedAsync(issue, issue.User);
+                    UserProfile? issueAuthor = await context.UserProfiles
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.Id == issue.UserId);
+                    if (issueAuthor != null)
+                    {
+                        await notificationService.NotifyIssueApprovedAsync(issue, issueAuthor);
+                    }
                 }
                 catch (Exception notifyEx)
                 {
