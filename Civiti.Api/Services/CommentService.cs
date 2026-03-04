@@ -843,13 +843,21 @@ public class CommentService(
             UpdatedAt = comment.UpdatedAt,
             ParentCommentId = comment.ParentCommentId,
             ReplyCount = replyCount,
-            User = new CommentUserResponse
-            {
-                Id = comment.User.Id,
-                DisplayName = comment.User.DisplayName,
-                PhotoUrl = comment.User.PhotoUrl,
-                Level = comment.User.Level
-            },
+            User = comment.User is not null
+                ? new CommentUserResponse
+                {
+                    Id = comment.User.Id,
+                    DisplayName = comment.User.DisplayName,
+                    PhotoUrl = comment.User.PhotoUrl,
+                    Level = comment.User.Level
+                }
+                : new CommentUserResponse
+                {
+                    Id = Guid.Empty,
+                    DisplayName = "Deleted User",
+                    PhotoUrl = null,
+                    Level = 0
+                },
             HasVoted = hasVoted
         };
     }
