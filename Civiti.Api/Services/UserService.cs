@@ -578,7 +578,21 @@ public class UserService(
 
             if (user == null)
             {
-                logger.LogWarning("User not found for deletion (or already deleted): {SupabaseUserId}", supabaseUserId);
+                // Check if already soft-deleted — retry Supabase auth revocation if needed
+                bool alreadyDeleted = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .AnyAsync(u => u.SupabaseUserId == supabaseUserId && u.IsDeleted);
+
+                if (alreadyDeleted)
+                {
+                    var retryResult = await supabaseService.DeleteAuthUserAsync(supabaseUserId);
+                    logger.LogInformation(
+                        "Retry Supabase auth cleanup for already-deleted user {SupabaseUserId}: {Result}",
+                        supabaseUserId, retryResult ? "succeeded" : "failed");
+                    return true; // Local deletion already complete
+                }
+
+                logger.LogWarning("User not found for deletion: {SupabaseUserId}", supabaseUserId);
                 return false;
             }
 
