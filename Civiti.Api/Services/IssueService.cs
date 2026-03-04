@@ -1174,15 +1174,13 @@ public class IssueService(
         {
             // Pre-validate outside the transaction
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
             if (user == null)
             {
                 return (false, "User not found");
             }
 
-            // Don't include User to avoid tracking UserProfile - gamification uses FindAsync
-            // which would return the tracked entity, causing double points on retry
             Issue? issue = await context.Issues
                 .FirstOrDefaultAsync(i => i.Id == issueId);
 
@@ -1349,15 +1347,13 @@ public class IssueService(
         {
             // Pre-validate outside the transaction
             UserProfile? user = await context.UserProfiles
-                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId && !u.IsDeleted);
+                .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
             if (user == null)
             {
                 return (false, "User not found");
             }
 
-            // Don't include User to avoid tracking UserProfile - gamification uses FindAsync
-            // which would return the tracked entity, causing double points on retry
             Issue? issue = await context.Issues
                 .FirstOrDefaultAsync(i => i.Id == issueId);
 
