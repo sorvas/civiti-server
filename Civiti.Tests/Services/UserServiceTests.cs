@@ -254,13 +254,13 @@ public class UserServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task DeleteUser_Should_Return_False_When_Already_Deleted()
+    public async Task DeleteUser_Should_Return_True_And_Retry_Supabase_When_Already_Deleted()
     {
         var user = TestDataBuilder.CreateUser(supabaseUserId: "already_deleted");
         user.IsDeleted = true;
         user.DeletedAt = DateTime.UtcNow.AddDays(-1);
-        // SupabaseUserId is now preserved on deletion, so the lookup filter
-        // "!u.IsDeleted" excludes this row and returns false
+        // Already soft-deleted locally — retry path should detect via IgnoreQueryFilters
+        // and retry Supabase auth cleanup, returning true since local deletion is complete
         using (var ctx = _dbFactory.CreateContext())
         {
             ctx.UserProfiles.Add(user);
@@ -270,7 +270,8 @@ public class UserServiceTests : IDisposable
         var svc = CreateService();
         var result = await svc.DeleteUserAsync("already_deleted");
 
-        result.Should().BeFalse();
+        result.Should().BeTrue();
+        _supabaseService.Verify(s => s.DeleteAuthUserAsync("already_deleted"), Times.Once);
     }
 
     // ── GetUserProfileAsync ──
