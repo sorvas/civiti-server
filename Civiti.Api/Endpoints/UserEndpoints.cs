@@ -223,6 +223,7 @@ public static class UserEndpoints
 
         // DELETE /api/user/account
         group.MapDelete(ApiRoutes.User.Account, async (
+            DeleteAccountRequest request,
             HttpContext context,
             IUserService userService) =>
         {
@@ -232,14 +233,20 @@ public static class UserEndpoints
                 return Results.Unauthorized();
             }
 
+            if (!string.Equals(request.Confirmation, "DELETE", StringComparison.Ordinal))
+            {
+                return Results.BadRequest(new { error = "Confirmation must be exactly \"DELETE\" to proceed." });
+            }
+
             var deleted = await userService.DeleteUserAsync(supabaseUserId);
-            
+
             return !deleted ? Results.NotFound(new { error = "User not found" }) : Results.NoContent();
         })
         .WithName("DeleteUserAccount")
         .WithSummary("Delete user account (soft delete)")
-        .WithDescription("Permanently soft-deletes the authenticated user's account. All personal data (email, name, phone, photo, location, residence type) is anonymized and the Supabase Auth account is removed (best-effort). The user's issues and comments are preserved with author shown as 'Deleted User'. This action cannot be undone.")
+        .WithDescription("Permanently soft-deletes the authenticated user's account. Requires a confirmation body with {\"confirmation\": \"DELETE\"}. All personal data is anonymized and the Supabase Auth account is removed (best-effort). The user's issues and comments are preserved with author shown as 'Deleted User'. This action cannot be undone.")
         .Produces(StatusCodes.Status204NoContent)
+        .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status401Unauthorized)
         .Produces(StatusCodes.Status404NotFound);
 

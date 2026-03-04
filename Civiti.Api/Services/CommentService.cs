@@ -269,8 +269,9 @@ public class CommentService(
                 await context.SaveChangesAsync();
 
                 // Update user stats atomically to avoid retry issues
+                // Guard against soft-deleted users since ExecuteUpdateAsync bypasses global filters
                 await context.UserProfiles
-                    .Where(u => u.Id == user.Id)
+                    .Where(u => u.Id == user.Id && !u.IsDeleted)
                     .ExecuteUpdateAsync(u => u
                         .SetProperty(x => x.CommentsGiven, x => x.CommentsGiven + 1)
                         .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
@@ -482,8 +483,9 @@ public class CommentService(
                     "comment_deleted");
 
                 // Decrement the user's CommentsGiven stat
+                // Guard against soft-deleted users since ExecuteUpdateAsync bypasses global filters
                 await context.UserProfiles
-                    .Where(u => u.Id == comment.UserId)
+                    .Where(u => u.Id == comment.UserId && !u.IsDeleted)
                     .ExecuteUpdateAsync(u => u
                         .SetProperty(x => x.CommentsGiven, x => Math.Max(0, x.CommentsGiven - 1))
                         .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
@@ -497,7 +499,7 @@ public class CommentService(
                 {
                     // Deduct HelpfulComments stat from comment author
                     await context.UserProfiles
-                        .Where(u => u.Id == comment.UserId)
+                        .Where(u => u.Id == comment.UserId && !u.IsDeleted)
                         .ExecuteUpdateAsync(u => u
                             .SetProperty(x => x.HelpfulComments, x => Math.Max(0, x.HelpfulComments - currentHelpfulCount))
                             .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
@@ -555,8 +557,9 @@ public class CommentService(
                             "reply_cascade_deleted");
 
                         // Decrement the user's CommentsGiven stat
+                        // Guard against soft-deleted users since ExecuteUpdateAsync bypasses global filters
                         await context.UserProfiles
-                            .Where(u => u.Id == descendantStat.UserId)
+                            .Where(u => u.Id == descendantStat.UserId && !u.IsDeleted)
                             .ExecuteUpdateAsync(u => u
                                 .SetProperty(x => x.CommentsGiven, x => Math.Max(0, x.CommentsGiven - descendantStat.CommentCount))
                                 .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
@@ -570,7 +573,7 @@ public class CommentService(
                         {
                             // Deduct HelpfulComments stat from descendant author
                             await context.UserProfiles
-                                .Where(u => u.Id == descendantStat.UserId)
+                                .Where(u => u.Id == descendantStat.UserId && !u.IsDeleted)
                                 .ExecuteUpdateAsync(u => u
                                     .SetProperty(x => x.HelpfulComments, x => Math.Max(0, x.HelpfulComments - descendantStat.TotalHelpfulCount))
                                     .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
@@ -705,8 +708,9 @@ public class CommentService(
                     .Where(c => c.Id == commentId)
                     .ExecuteUpdateAsync(c => c.SetProperty(x => x.HelpfulCount, x => x.HelpfulCount + 1));
 
+                // Guard against soft-deleted users since ExecuteUpdateAsync bypasses global filters
                 await context.UserProfiles
-                    .Where(u => u.Id == comment.UserId)
+                    .Where(u => u.Id == comment.UserId && !u.IsDeleted)
                     .ExecuteUpdateAsync(u => u
                         .SetProperty(x => x.HelpfulComments, x => x.HelpfulComments + 1)
                         .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
@@ -802,8 +806,9 @@ public class CommentService(
                     .Where(c => c.Id == commentId)
                     .ExecuteUpdateAsync(c => c.SetProperty(x => x.HelpfulCount, x => Math.Max(0, x.HelpfulCount - 1)));
 
+                // Guard against soft-deleted users since ExecuteUpdateAsync bypasses global filters
                 await context.UserProfiles
-                    .Where(u => u.Id == comment.UserId)
+                    .Where(u => u.Id == comment.UserId && !u.IsDeleted)
                     .ExecuteUpdateAsync(u => u
                         .SetProperty(x => x.HelpfulComments, x => Math.Max(0, x.HelpfulComments - 1))
                         .SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
