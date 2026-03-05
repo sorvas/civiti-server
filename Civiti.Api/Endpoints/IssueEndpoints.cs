@@ -158,6 +158,13 @@ public static class IssueEndpoints
                     statusCode: StatusCodes.Status403Forbidden,
                     title: "Account Deleted");
             }
+            catch (InvalidOperationException ex) when (ex.Message is DomainErrors.UserNotFound or DomainErrors.UserProfileNotFound)
+            {
+                return TypedResults.Problem(
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status404NotFound,
+                    title: "User Not Found");
+            }
             catch (InvalidOperationException ex)
             {
                 return TypedResults.BadRequest(ex.Message);
@@ -173,6 +180,7 @@ public static class IssueEndpoints
         .Produces(400)
         .Produces(401)
         .Produces(StatusCodes.Status403Forbidden)
+        .Produces(404)
         .Produces(429);
 
         // POST /api/issues/{id}/email-sent
@@ -289,6 +297,7 @@ public static class IssueEndpoints
                 return error switch
                 {
                     DomainErrors.IssueNotFound => TypedResults.NotFound(),
+                    DomainErrors.UserNotFound or DomainErrors.UserProfileNotFound => TypedResults.NotFound(),
                     DomainErrors.AccountDeleted => TypedResults.Problem(
                         detail: DomainErrors.AccountDeleted,
                         statusCode: StatusCodes.Status403Forbidden,
@@ -328,6 +337,7 @@ public static class IssueEndpoints
                 return error switch
                 {
                     DomainErrors.IssueNotFound => TypedResults.NotFound(),
+                    DomainErrors.UserNotFound or DomainErrors.UserProfileNotFound => TypedResults.NotFound(),
                     DomainErrors.AccountDeleted => TypedResults.Problem(
                         detail: DomainErrors.AccountDeleted,
                         statusCode: StatusCodes.Status403Forbidden,
