@@ -247,13 +247,19 @@ public class UserService(
 
             try
             {
-                // Re-fetch user inside execution strategy to get fresh data on retry
-                UserProfile? user = await context.UserProfiles.FirstOrDefaultAsync(u => u.Id == userId);
+                // Re-fetch user inside execution strategy to get fresh data on retry.
+                // Use IgnoreQueryFilters so a concurrent soft-delete doesn't silently
+                // return null and let stale data fall through as 200 OK.
+                UserProfile? user = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(u => u.Id == userId);
                 if (user == null)
                 {
                     logger.LogWarning("User {UserId} not found for login streak update", userId);
                     return null;
                 }
+                if (user.IsDeleted)
+                    throw new InvalidOperationException(DomainErrors.AccountDeleted);
 
                 DateTime today = DateTime.UtcNow.Date;
                 DateTime lastActivityDate = user.LastActivityDate.Date;

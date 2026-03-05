@@ -29,6 +29,7 @@ public static class ApiRoutes
         public const string IssueById = "/issues/{id:guid}";
         public const string IssueStatus = "/issues/{id:guid}/status";
         public const string Account = "/account";
+        public const string AccountDelete = "/account/delete";
         public const string Leaderboard = "/leaderboard";
     }
 

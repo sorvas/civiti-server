@@ -221,8 +221,8 @@ public static class UserEndpoints
         .Produces(StatusCodes.Status401Unauthorized)
         .Produces(StatusCodes.Status403Forbidden);
 
-        // DELETE /api/user/account
-        group.MapDelete(ApiRoutes.User.Account, async (
+        // POST /api/user/account/delete
+        group.MapPost(ApiRoutes.User.AccountDelete, async (
             DeleteAccountRequest request,
             HttpContext context,
             IUserService userService) =>
