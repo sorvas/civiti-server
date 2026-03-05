@@ -231,18 +231,22 @@ public class GamificationService(
     {
         try
         {
-            // Guard: skip for soft-deleted users
-            UserProfile? user = await context.UserProfiles
+            // Guard: skip for missing or soft-deleted users.
+            // Use a scalar projection instead of loading the full UserProfile row,
+            // since this method is called 3-4 times per user action and only needs the IsDeleted flag.
+            var deletionStatus = await context.UserProfiles
                 .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(u => u.Id == userId);
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.IsDeleted })
+                .FirstOrDefaultAsync();
 
-            if (user == null)
+            if (deletionStatus == null)
             {
                 logger.LogWarning("User not found for achievement check: {UserId}", userId);
                 return;
             }
 
-            if (user.IsDeleted)
+            if (deletionStatus.IsDeleted)
             {
                 logger.LogDebug("Skipping achievement check for soft-deleted user: {UserId}", userId);
                 return;
@@ -326,8 +330,9 @@ public class GamificationService(
                         userId, userAchievement.Achievement.Title);
 
                     var capturedAchievementTitle = userAchievement.Achievement.Title;
-                    UserProfile? achiever = await context.UserProfiles
-                        .FirstOrDefaultAsync(u => u.Id == userId);
+                    // Use FindAsync to leverage the EF Core identity-map cache — the user
+                    // is already tracked from AwardPointsAsync, so this avoids a DB round-trip.
+                    UserProfile? achiever = await context.UserProfiles.FindAsync(userId);
                     if (achiever != null)
                     {
                         _pendingNotifications.Add(() => notificationService.NotifyAchievementCompletedAsync(achiever, capturedAchievementTitle));
