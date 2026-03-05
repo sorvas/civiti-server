@@ -72,11 +72,7 @@ public class UserService(
                 LevelProgressPercentage = levelProgressPercentage
             };
         }
-        catch (InvalidOperationException)
-        {
-            throw; // Re-throw domain exceptions (e.g. deleted account) as-is
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not InvalidOperationException)
         {
             logger.LogError(ex, "Error getting user gamification for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to get user gamification for Supabase ID: {supabaseUserId}", ex);
@@ -87,9 +83,10 @@ public class UserService(
     {
         try
         {
-            // Use AsNoTracking since we only need to read user data for the response
+            // Bypass global filter to distinguish "not found" from "soft-deleted"
             UserProfile? user = await context.UserProfiles
                 .AsNoTracking()
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
             if (user == null)
@@ -97,6 +94,8 @@ public class UserService(
                 logger.LogWarning("User not found for Supabase ID: {SupabaseUserId}", supabaseUserId);
                 return null;
             }
+            if (user.IsDeleted)
+                throw new InvalidOperationException(DomainErrors.AccountDeleted);
 
             // Track login streak (once per day) and get updated user data in a single operation
             user = await UpdateLoginStreakAsync(user.Id) ?? user;
@@ -124,11 +123,7 @@ public class UserService(
                 CreatedAt = user.CreatedAt
             };
         }
-        catch (InvalidOperationException)
-        {
-            throw; // Re-throw domain exceptions (e.g. deleted account) as-is
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not InvalidOperationException)
         {
             logger.LogError(ex, "Error getting user profile for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to get user profile for Supabase ID: {supabaseUserId}", ex);
@@ -381,14 +376,6 @@ public class UserService(
             // Return full profile with gamification (will be empty for new user)
             return (await GetUserProfileAsync(supabaseUserId))!;
         }
-        catch (ArgumentException)
-        {
-            throw; // Re-throw argument exceptions as-is
-        }
-        catch (InvalidOperationException)
-        {
-            throw; // Re-throw domain exceptions (e.g. deleted account) as-is
-        }
         catch (DbUpdateException)
         {
             // Clear the failed entity from change tracker before re-throwing
@@ -396,7 +383,7 @@ public class UserService(
             context.ChangeTracker.Clear();
             throw;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not ArgumentException and not InvalidOperationException)
         {
             logger.LogError(ex, "Error creating user profile for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to create user profile for Supabase ID: {supabaseUserId}", ex);
@@ -458,11 +445,7 @@ public class UserService(
 
             return (await GetUserProfileAsync(supabaseUserId))!;
         }
-        catch (InvalidOperationException)
-        {
-            throw; // Re-throw domain exceptions (e.g. deleted account) as-is
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not InvalidOperationException)
         {
             logger.LogError(ex, "Error updating user profile for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to update user profile for Supabase ID: {supabaseUserId}", ex);
@@ -592,7 +575,7 @@ public class UserService(
             // 1. Anonymize PII and soft-delete locally FIRST so the DB is always consistent.
             //    Keep the original SupabaseUserId so the global query filter + the
             //    IgnoreQueryFilters guard in GetOrCreateUserProfileAsync blocks re-creation.
-            var opaqueId = Convert.ToHexString(SHA256.HashData(user.Id.ToByteArray()))[..16].ToLowerInvariant();
+            var opaqueId = Convert.ToHexString(SHA256.HashData(user.Id.ToByteArray()))[..32].ToLowerInvariant();
             user.Email = $"deleted_{opaqueId}@civica.ro";
             user.DisplayName = "Deleted User";
             user.PhotoUrl = null;

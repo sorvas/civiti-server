@@ -304,7 +304,7 @@ public class UserServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetUserProfile_Should_Return_Null_For_Deleted_User()
+    public async Task GetUserProfile_Should_Throw_For_Deleted_User()
     {
         var user = TestDataBuilder.CreateUser(supabaseUserId: "deleted_profile_user", displayName: "Gone");
         user.IsDeleted = true;
@@ -317,9 +317,10 @@ public class UserServiceTests : IDisposable
         }
 
         var svc = CreateService();
-        var result = await svc.GetUserProfileAsync("deleted_profile_user");
+        var act = () => svc.GetUserProfileAsync("deleted_profile_user");
 
-        result.Should().BeNull();
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage(DomainErrors.AccountDeleted);
     }
 
     // ── GetOrCreateUserProfileAsync ──

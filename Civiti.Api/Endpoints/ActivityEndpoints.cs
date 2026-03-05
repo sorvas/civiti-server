@@ -63,22 +63,32 @@ public static class ActivityEndpoints
                 return Results.Unauthorized();
             }
 
-            UserProfileResponse? profile = await userService.GetUserProfileAsync(supabaseUserId);
-            if (profile == null)
+            try
             {
-                return Results.NotFound(new { error = DomainErrors.UserNotFound });
+                UserProfileResponse? profile = await userService.GetUserProfileAsync(supabaseUserId);
+                if (profile == null)
+                {
+                    return Results.NotFound(new { error = DomainErrors.UserNotFound });
+                }
+
+                GetActivitiesRequest request = new()
+                {
+                    Page = page ?? 1,
+                    PageSize = Math.Min(pageSize ?? 20, 100),
+                    Type = type,
+                    Since = since
+                };
+
+                PagedResult<ActivityResponse> result = await activityService.GetUserActivitiesAsync(profile.Id, request);
+                return Results.Ok(result);
             }
-
-            GetActivitiesRequest request = new()
+            catch (InvalidOperationException ex) when (ex.Message == DomainErrors.AccountDeleted)
             {
-                Page = page ?? 1,
-                PageSize = Math.Min(pageSize ?? 20, 100),
-                Type = type,
-                Since = since
-            };
-
-            PagedResult<ActivityResponse> result = await activityService.GetUserActivitiesAsync(profile.Id, request);
-            return Results.Ok(result);
+                return Results.Problem(
+                    detail: DomainErrors.AccountDeleted,
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
         })
         .RequireAuthorization()
         .WithName("GetUserActivities")
@@ -86,6 +96,7 @@ public static class ActivityEndpoints
         .WithDescription("Retrieves activity events for issues owned by the authenticated user. Useful for tracking engagement on your reported issues.")
         .Produces<PagedResult<ActivityResponse>>()
         .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden)
         .Produces(StatusCodes.Status404NotFound);
     }
 }

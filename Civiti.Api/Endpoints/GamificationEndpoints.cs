@@ -44,20 +44,31 @@ public static class GamificationEndpoints
                 return Results.Unauthorized();
             }
 
-            UserProfileResponse? profile = await userService.GetUserProfileAsync(supabaseUserId);
-            if (profile == null)
+            try
             {
-                return Results.NotFound(new { error = DomainErrors.UserNotFound });
-            }
+                UserProfileResponse? profile = await userService.GetUserProfileAsync(supabaseUserId);
+                if (profile == null)
+                {
+                    return Results.NotFound(new { error = DomainErrors.UserNotFound });
+                }
 
-            List<BadgeResponse> badges = await gamificationService.GetAvailableBadgesAsync(profile.Id);
-            return Results.Ok(badges);
+                List<BadgeResponse> badges = await gamificationService.GetAvailableBadgesAsync(profile.Id);
+                return Results.Ok(badges);
+            }
+            catch (InvalidOperationException ex) when (ex.Message == DomainErrors.AccountDeleted)
+            {
+                return Results.Problem(
+                    detail: DomainErrors.AccountDeleted,
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
         })
         .RequireAuthorization()
         .WithName("GetUserBadges")
         .WithSummary("Get all badges with user's earned status")
         .Produces<List<BadgeResponse>>()
         .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden)
         .Produces(StatusCodes.Status404NotFound);
 
         // GET /api/gamification/achievements
@@ -83,20 +94,31 @@ public static class GamificationEndpoints
                 return Results.Unauthorized();
             }
 
-            UserProfileResponse? profile = await userService.GetUserProfileAsync(supabaseUserId);
-            if (profile == null)
+            try
             {
-                return Results.NotFound(new { error = DomainErrors.UserNotFound });
-            }
+                UserProfileResponse? profile = await userService.GetUserProfileAsync(supabaseUserId);
+                if (profile == null)
+                {
+                    return Results.NotFound(new { error = DomainErrors.UserNotFound });
+                }
 
-            List<AchievementProgressResponse> achievements = await gamificationService.GetUserAchievementsAsync(profile.Id);
-            return Results.Ok(achievements);
+                List<AchievementProgressResponse> achievements = await gamificationService.GetUserAchievementsAsync(profile.Id);
+                return Results.Ok(achievements);
+            }
+            catch (InvalidOperationException ex) when (ex.Message == DomainErrors.AccountDeleted)
+            {
+                return Results.Problem(
+                    detail: DomainErrors.AccountDeleted,
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
         })
         .RequireAuthorization()
         .WithName("GetUserAchievements")
         .WithSummary("Get user's achievement progress")
         .Produces<List<AchievementProgressResponse>>()
         .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden)
         .Produces(StatusCodes.Status404NotFound);
 
         // GET /api/gamification/leaderboard
