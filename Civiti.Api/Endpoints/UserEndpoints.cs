@@ -244,10 +244,10 @@ public static class UserEndpoints
 
                 return !deleted ? Results.NotFound(new { error = DomainErrors.UserNotFound }) : Results.NoContent();
             }
-            catch (InvalidOperationException ex)
+            catch (InvalidOperationException)
             {
                 return Results.Problem(
-                    detail: ex.Message,
+                    detail: "An error occurred while deleting the account. Please try again later.",
                     statusCode: StatusCodes.Status500InternalServerError,
                     title: "Delete Failed");
             }
@@ -307,10 +307,10 @@ public static class UserEndpoints
                     statusCode: StatusCodes.Status403Forbidden,
                     title: "Account Deleted");
             }
-            catch (InvalidOperationException ex) when (ex.Message == "User profile not found.")
+            catch (InvalidOperationException ex) when (ex.Message == DomainErrors.UserProfileNotFound)
             {
                 return Results.Problem(
-                    detail: "User profile not found.",
+                    detail: DomainErrors.UserProfileNotFound,
                     statusCode: StatusCodes.Status404NotFound,
                     title: "Profile Not Found");
             }
@@ -365,7 +365,7 @@ public static class UserEndpoints
                         statusCode: StatusCodes.Status403Forbidden,
                         title: "Account Deleted"),
                     DomainErrors.IssueNotFound => Results.NotFound(new { error }),
-                    "User profile not found" => Results.NotFound(new { error }),
+                    DomainErrors.UserProfileNotFound => Results.NotFound(new { error }),
                     "You can only change status of your own issues" => Results.Forbid(),
                     _ => Results.BadRequest(new { error })
                 };
@@ -406,7 +406,7 @@ public static class UserEndpoints
                         statusCode: StatusCodes.Status403Forbidden,
                         title: "Account Deleted"),
                     DomainErrors.IssueNotFound => Results.NotFound(new { error }),
-                    "User profile not found" => Results.NotFound(new { error }),
+                    DomainErrors.UserProfileNotFound => Results.NotFound(new { error }),
                     "You can only edit your own issues" => Results.Forbid(),
                     _ => Results.BadRequest(new { error })
                 };

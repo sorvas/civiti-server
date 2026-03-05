@@ -41,42 +41,45 @@ public class UserService(
             if (user.IsDeleted)
                 throw new InvalidOperationException(DomainErrors.AccountDeleted);
 
-            // Get recent badges
-            List<BadgeResponse> recentBadges = await gamificationService.GetUserBadgesAsync(user.Id);
-            List<AchievementProgressResponse> activeAchievements = await gamificationService.GetUserAchievementsAsync(user.Id);
-
-            // Calculate level points
-            var nextLevel = user.Level + 1;
-            var currentLevelPoints = GetPointsForLevel(user.Level);
-            var nextLevelPoints = GetPointsForLevel(nextLevel);
-            var pointsToNextLevel = nextLevelPoints - user.Points;
-            var pointsInCurrentLevel = user.Points - currentLevelPoints;
-            var levelRange = nextLevelPoints - currentLevelPoints;
-            var levelProgressPercentage = levelRange > 0 ? Math.Round((double)pointsInCurrentLevel / levelRange * 100, 2) : 100;
-
-            return new UserGamificationResponse
-            {
-                Points = user.Points,
-                Level = user.Level,
-                IssuesReported = user.IssuesReported,
-                IssuesResolved = user.IssuesResolved,
-                CommunityVotes = user.CommunityVotes,
-                CurrentLoginStreak = user.CurrentLoginStreak,
-                LongestLoginStreak = user.LongestLoginStreak,
-                RecentBadges = recentBadges.Take(5).ToList(),
-                ActiveAchievements = activeAchievements.Where(a => !a.Completed).Take(5).ToList(),
-                CurrentLevelPoints = currentLevelPoints,
-                NextLevelPoints = nextLevelPoints,
-                PointsToNextLevel = pointsToNextLevel > 0 ? pointsToNextLevel : 0,
-                PointsInCurrentLevel = pointsInCurrentLevel > 0 ? pointsInCurrentLevel : 0,
-                LevelProgressPercentage = levelProgressPercentage
-            };
+            return await BuildGamificationResponseAsync(user);
         }
         catch (Exception ex) when (ex is not InvalidOperationException)
         {
             logger.LogError(ex, "Error getting user gamification for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to get user gamification for Supabase ID: {supabaseUserId}", ex);
         }
+    }
+
+    private async Task<UserGamificationResponse> BuildGamificationResponseAsync(UserProfile user)
+    {
+        List<BadgeResponse> recentBadges = await gamificationService.GetUserBadgesAsync(user.Id);
+        List<AchievementProgressResponse> activeAchievements = await gamificationService.GetUserAchievementsAsync(user.Id);
+
+        var nextLevel = user.Level + 1;
+        var currentLevelPoints = GetPointsForLevel(user.Level);
+        var nextLevelPoints = GetPointsForLevel(nextLevel);
+        var pointsToNextLevel = nextLevelPoints - user.Points;
+        var pointsInCurrentLevel = user.Points - currentLevelPoints;
+        var levelRange = nextLevelPoints - currentLevelPoints;
+        var levelProgressPercentage = levelRange > 0 ? Math.Round((double)pointsInCurrentLevel / levelRange * 100, 2) : 100;
+
+        return new UserGamificationResponse
+        {
+            Points = user.Points,
+            Level = user.Level,
+            IssuesReported = user.IssuesReported,
+            IssuesResolved = user.IssuesResolved,
+            CommunityVotes = user.CommunityVotes,
+            CurrentLoginStreak = user.CurrentLoginStreak,
+            LongestLoginStreak = user.LongestLoginStreak,
+            RecentBadges = recentBadges.Take(5).ToList(),
+            ActiveAchievements = activeAchievements.Where(a => !a.Completed).Take(5).ToList(),
+            CurrentLevelPoints = currentLevelPoints,
+            NextLevelPoints = nextLevelPoints,
+            PointsToNextLevel = pointsToNextLevel > 0 ? pointsToNextLevel : 0,
+            PointsInCurrentLevel = pointsInCurrentLevel > 0 ? pointsInCurrentLevel : 0,
+            LevelProgressPercentage = levelProgressPercentage
+        };
     }
 
     public async Task<UserProfileResponse?> GetUserProfileAsync(string supabaseUserId)
@@ -100,7 +103,7 @@ public class UserService(
             // Track login streak (once per day) and get updated user data in a single operation
             user = await UpdateLoginStreakAsync(user.Id) ?? user;
 
-            UserGamificationResponse gamification = await GetUserGamificationAsync(supabaseUserId);
+            UserGamificationResponse gamification = await BuildGamificationResponseAsync(user);
 
             return new UserProfileResponse
             {

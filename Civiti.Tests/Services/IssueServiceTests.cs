@@ -555,6 +555,6 @@ public class IssueServiceTests : IDisposable
             new GetUserIssuesRequest { Page = 1, PageSize = 10 });
 
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("User profile not found.");
+            .WithMessage(DomainErrors.UserProfileNotFound);
     }
 }

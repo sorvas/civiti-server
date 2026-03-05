@@ -298,7 +298,7 @@ public class IssueService(
                 .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
             if (userProfile == null)
-                throw new InvalidOperationException("User profile not found");
+                throw new InvalidOperationException(DomainErrors.UserProfileNotFound);
             if (userProfile.IsDeleted)
                 throw new InvalidOperationException(DomainErrors.AccountDeleted);
 
@@ -611,7 +611,7 @@ public class IssueService(
             if (userProfile == null)
             {
                 logger.LogWarning("User profile not found for Supabase user: {SupabaseUserId}", supabaseUserId);
-                throw new InvalidOperationException("User profile not found.");
+                throw new InvalidOperationException(DomainErrors.UserProfileNotFound);
             }
 
             if (userProfile.IsDeleted)
@@ -711,7 +711,7 @@ public class IssueService(
                     .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
                 if (userProfile == null)
-                    return (false, "User profile not found");
+                    return (false, DomainErrors.UserProfileNotFound);
                 if (userProfile.IsDeleted)
                     return (false, DomainErrors.AccountDeleted);
 
@@ -892,7 +892,7 @@ public class IssueService(
                     .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
 
                 if (userProfile == null)
-                    return (false, null, "User profile not found");
+                    return (false, null, DomainErrors.UserProfileNotFound);
                 if (userProfile.IsDeleted)
                     return (false, null, DomainErrors.AccountDeleted);
 
