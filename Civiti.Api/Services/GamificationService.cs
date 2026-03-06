@@ -328,7 +328,7 @@ public class GamificationService(
                     // Use FindAsync to leverage the EF Core identity-map cache — the user
                     // is already tracked from AwardPointsAsync, so this avoids a DB round-trip.
                     UserProfile? achiever = await context.UserProfiles.FindAsync(userId);
-                    if (achiever != null)
+                    if (achiever != null && !achiever.IsDeleted)
                     {
                         _pendingNotifications.Add(() => notificationService.NotifyAchievementCompletedAsync(achiever, capturedAchievementTitle));
                     }
