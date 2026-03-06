@@ -231,7 +231,7 @@ public static class IssueEndpoints
         .Produces(429);
 
         // POST /api/issues/enhance-text
-        group.MapPost(ApiRoutes.Issues.EnhanceText, [Authorize] async Task<Results<Ok<EnhanceTextResponse>, BadRequest<string>, UnauthorizedHttpResult, StatusCodeHttpResult>> (
+        group.MapPost(ApiRoutes.Issues.EnhanceText, [Authorize] async Task<Results<Ok<EnhanceTextResponse>, BadRequest<string>, UnauthorizedHttpResult, ProblemHttpResult, StatusCodeHttpResult>> (
             IClaudeEnhancementService enhancementService,
             IUserService userService,
             EnhanceTextRequest request,
@@ -245,7 +245,19 @@ public static class IssueEndpoints
             }
 
             // Get internal user ID for rate limiting
-            UserProfileResponse? userProfile = await userService.GetUserProfileAsync(supabaseUserId);
+            UserProfileResponse? userProfile;
+            try
+            {
+                userProfile = await userService.GetUserProfileAsync(supabaseUserId);
+            }
+            catch (AccountDeletedException)
+            {
+                return TypedResults.Problem(
+                    detail: DomainErrors.AccountDeleted,
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Account Deleted");
+            }
+
             if (userProfile == null)
             {
                 return TypedResults.Unauthorized();
@@ -267,6 +279,7 @@ public static class IssueEndpoints
         .Produces<EnhanceTextResponse>()
         .Produces(400)
         .Produces(401)
+        .Produces(StatusCodes.Status403Forbidden)
         .Produces(429);
 
         // GET /api/issues/{id}/poster
