@@ -44,7 +44,7 @@ public class UserService(
 
             return await BuildGamificationResponseAsync(user);
         }
-        catch (Exception ex) when (ex is not InvalidOperationException)
+        catch (Exception ex) when (ex is not InvalidOperationException and not AccountDeletedException)
         {
             logger.LogError(ex, "Error getting user gamification for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to get user gamification for Supabase ID: {supabaseUserId}", ex);
@@ -127,7 +127,7 @@ public class UserService(
                 CreatedAt = user.CreatedAt
             };
         }
-        catch (Exception ex) when (ex is not InvalidOperationException)
+        catch (Exception ex) when (ex is not InvalidOperationException and not AccountDeletedException)
         {
             logger.LogError(ex, "Error getting user profile for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to get user profile for Supabase ID: {supabaseUserId}", ex);
@@ -226,7 +226,7 @@ public class UserService(
             logger.LogError(ex, "Database error in GetOrCreateUserProfileAsync for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to get or create user profile for Supabase ID: {supabaseUserId}", ex);
         }
-        catch (Exception ex) when (ex is not AccountDeletedException)
+        catch (Exception ex) when (ex is not InvalidOperationException and not AccountDeletedException)
         {
             logger.LogError(ex, "Error in GetOrCreateUserProfileAsync for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to get or create user profile for Supabase ID: {supabaseUserId}", ex);
@@ -404,7 +404,7 @@ public class UserService(
             context.ChangeTracker.Clear();
             throw;
         }
-        catch (Exception ex) when (ex is not ArgumentException and not InvalidOperationException)
+        catch (Exception ex) when (ex is not ArgumentException and not InvalidOperationException and not AccountDeletedException)
         {
             logger.LogError(ex, "Error creating user profile for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to create user profile for Supabase ID: {supabaseUserId}", ex);
@@ -466,7 +466,7 @@ public class UserService(
 
             return (await GetUserProfileAsync(supabaseUserId))!;
         }
-        catch (Exception ex) when (ex is not InvalidOperationException)
+        catch (Exception ex) when (ex is not InvalidOperationException and not AccountDeletedException)
         {
             logger.LogError(ex, "Error updating user profile for Supabase ID: {SupabaseUserId}", supabaseUserId);
             throw new InvalidOperationException($"Failed to update user profile for Supabase ID: {supabaseUserId}", ex);

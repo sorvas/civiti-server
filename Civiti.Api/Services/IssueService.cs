@@ -682,7 +682,7 @@ public class IssueService(
                 TotalPages = (int)Math.Ceiling((double)totalItems / request.PageSize)
             };
         }
-        catch (Exception ex) when (ex is not InvalidOperationException)
+        catch (Exception ex) when (ex is not InvalidOperationException and not AccountDeletedException)
         {
             logger.LogError(ex, "Error getting user issues for {SupabaseUserId}", supabaseUserId);
             throw;
