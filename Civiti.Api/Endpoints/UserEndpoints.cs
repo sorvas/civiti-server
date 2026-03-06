@@ -24,6 +24,8 @@ public static class UserEndpoints
 {
     private const int MaxDeleteAttemptsPerHour = 3;
     private static readonly TimeSpan DeleteRateLimitWindow = TimeSpan.FromHours(1);
+    // TODO: IMemoryCache is per-process. If the app scales to multiple instances,
+    // replace with IDistributedCache (Redis) or a gateway-level rate limiter.
 
     /// <summary>
     /// Thread-safe counter stored in IMemoryCache. Created once per key with a fixed
