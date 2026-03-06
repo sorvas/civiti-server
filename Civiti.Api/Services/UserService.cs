@@ -25,7 +25,7 @@ public class UserService(
     // Note: UserProfile has a global query filter (HasQueryFilter) that automatically
     // excludes IsDeleted rows. Mutation methods use IgnoreQueryFilters() with a single
     // query to distinguish "user not found" from "account deleted" without a second round-trip.
-    public async Task<UserGamificationResponse> GetUserGamificationAsync(string supabaseUserId)
+    public async Task<UserGamificationResponse?> GetUserGamificationAsync(string supabaseUserId)
     {
         try
         {
@@ -37,7 +37,7 @@ public class UserService(
             if (user == null)
             {
                 logger.LogWarning("User not found for Supabase ID: {SupabaseUserId}", supabaseUserId);
-                return new UserGamificationResponse();
+                return null;
             }
             if (user.IsDeleted)
                 throw new AccountDeletedException();

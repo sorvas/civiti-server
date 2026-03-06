@@ -1218,6 +1218,16 @@ public class IssueService(
                 // Clear change tracker to ensure clean state on retry
                 context.ChangeTracker.Clear();
 
+                // Re-check IsDeleted inside the retry loop to close the TOCTOU window:
+                // a concurrent soft-delete between the pre-validation above and the INSERT
+                // would otherwise create an orphaned IssueVotes row.
+                bool isDeleted = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .Where(u => u.Id == user.Id && u.IsDeleted)
+                    .AnyAsync();
+                if (isDeleted)
+                    return (voted: false, deleted: true);
+
                 // Check if this vote was already created in a previous retry attempt
                 IssueVote? existingVote = await context.IssueVotes
                     .FirstOrDefaultAsync(v => v.Id == voteId);
@@ -1225,7 +1235,7 @@ public class IssueService(
                 if (existingVote != null)
                 {
                     // Vote was created on a previous attempt - treat as success
-                    return true;
+                    return (voted: true, deleted: false);
                 }
 
                 await using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync();
@@ -1256,7 +1266,7 @@ public class IssueService(
                 {
                     // Issue was deactivated between check and update - rollback everything
                     await transaction.RollbackAsync();
-                    return false;
+                    return (voted: false, deleted: false);
                 }
 
                 // Increment CommunityVotes on the issue author's profile (votes received)
@@ -1289,10 +1299,13 @@ public class IssueService(
                 // Flush gamification notifications now that the transaction is committed
                 await gamificationService.FlushPendingNotificationsAsync();
 
-                return true;
+                return (voted: true, deleted: false);
             });
 
-            if (!votedByThisRequest)
+            if (votedByThisRequest.deleted)
+                return (false, DomainErrors.AccountDeleted);
+
+            if (!votedByThisRequest.voted)
             {
                 // Issue was deactivated during the voting process
                 return (false, "Issue is no longer active");
@@ -1372,10 +1385,18 @@ public class IssueService(
             // Use execution strategy to wrap the transaction
             IExecutionStrategy strategy = context.Database.CreateExecutionStrategy();
 
-            var removedByThisRequest = await strategy.ExecuteAsync(async () =>
+            var removeResult = await strategy.ExecuteAsync(async () =>
             {
                 // Clear change tracker to ensure clean state on retry
                 context.ChangeTracker.Clear();
+
+                // Re-check IsDeleted inside the retry loop to close the TOCTOU window
+                bool isDeleted = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .Where(u => u.Id == user.Id && u.IsDeleted)
+                    .AnyAsync();
+                if (isDeleted)
+                    return (removed: false, deleted: true);
 
                 await using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync();
 
@@ -1388,7 +1409,7 @@ public class IssueService(
                 if (rowsDeleted == 0)
                 {
                     await transaction.RollbackAsync();
-                    return false; // Idempotent success
+                    return (removed: false, deleted: false); // Idempotent success
                 }
 
                 // Use atomic database operations to prevent race conditions on vote counts
@@ -1420,10 +1441,13 @@ public class IssueService(
                     "issue_vote_removed");
 
                 await transaction.CommitAsync();
-                return true;
+                return (removed: true, deleted: false);
             });
 
-            if (removedByThisRequest)
+            if (removeResult.deleted)
+                return (false, DomainErrors.AccountDeleted);
+
+            if (removeResult.removed)
             {
                 logger.LogInformation(
                     "User {UserId} removed vote from issue {IssueId}, deducted {Points} points from author {AuthorId}",

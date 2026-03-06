@@ -111,7 +111,11 @@ public class AdminService(
     {
         try
         {
+            // IgnoreQueryFilters disables the UserProfile global filter so that
+            // Include(i => i.User) loads deleted authors (showing their anonymized PII)
+            // instead of silently returning null.
             Issue? issue = await context.Issues
+                .IgnoreQueryFilters()
                 .Include(i => i.User)
                 .Include(i => i.Photos)
                 .Include(i => i.AdminActions)

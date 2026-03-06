@@ -9,7 +9,7 @@ namespace Civiti.Api.Services.Interfaces;
 
 public interface IUserService
 {
-    Task<UserGamificationResponse> GetUserGamificationAsync(string supabaseUserId);
+    Task<UserGamificationResponse?> GetUserGamificationAsync(string supabaseUserId);
     Task<UserProfileResponse?> GetUserProfileAsync(string supabaseUserId);
     Task<UserProfileResponse> GetOrCreateUserProfileAsync(string supabaseUserId, string email, string displayName, string? photoUrl, SignupMetadata? signupMetadata = null);
     Task<UserProfileResponse> CreateUserProfileAsync(CreateUserProfileRequest request, string supabaseUserId, string email);

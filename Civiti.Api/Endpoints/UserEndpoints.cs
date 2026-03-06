@@ -212,7 +212,11 @@ public static class UserEndpoints
 
             try
             {
-                UserGamificationResponse gamification = await userService.GetUserGamificationAsync(supabaseUserId);
+                UserGamificationResponse? gamification = await userService.GetUserGamificationAsync(supabaseUserId);
+                if (gamification == null)
+                {
+                    return Results.NotFound(new { error = DomainErrors.UserNotFound });
+                }
                 return Results.Ok(gamification);
             }
             catch (AccountDeletedException)
@@ -227,7 +231,8 @@ public static class UserEndpoints
         .WithSummary("Get user's gamification data")
         .Produces<UserGamificationResponse>()
         .Produces(StatusCodes.Status401Unauthorized)
-        .Produces(StatusCodes.Status403Forbidden);
+        .Produces(StatusCodes.Status403Forbidden)
+        .Produces(StatusCodes.Status404NotFound);
 
         // POST /api/user/account/delete
         group.MapPost(ApiRoutes.User.AccountDelete, async (
