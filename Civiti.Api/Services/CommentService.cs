@@ -865,7 +865,7 @@ public class CommentService(
                 }
                 : new CommentUserResponse
                 {
-                    Id = Guid.Empty,
+                    Id = null,
                     DisplayName = "Deleted User",
                     PhotoUrl = null,
                     Level = 0

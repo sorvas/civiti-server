@@ -418,8 +418,6 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 // Validators
 builder.Services.AddValidatorsFromAssemblyContaining<Civiti.Api.Program>();
 
-// Built-in .NET 10 validation for route/query parameter validation via Data Annotations
-builder.Services.AddValidation();
 
 // HttpClient for development endpoints
 builder.Services.AddHttpClient();
