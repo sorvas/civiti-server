@@ -321,6 +321,12 @@ public class UserService(
                 context.Entry(user).State = EntityState.Detached;
                 return user;
             }
+            catch (AccountDeletedException)
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Login streak update skipped — user {UserId} was concurrently deleted", userId);
+                throw;
+            }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();

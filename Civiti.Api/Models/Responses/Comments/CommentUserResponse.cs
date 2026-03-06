@@ -5,7 +5,7 @@ namespace Civiti.Api.Models.Responses.Comments;
 /// </summary>
 public class CommentUserResponse
 {
-    public Guid? Id { get; set; }
+    public Guid Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public string? PhotoUrl { get; set; }
     public int Level { get; set; }

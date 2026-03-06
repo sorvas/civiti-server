@@ -40,7 +40,7 @@ public class IssuePhotoResponse
 
 public class UserBasicResponse
 {
-    public Guid? Id { get; set; }
+    public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? PhotoUrl { get; set; }
 }

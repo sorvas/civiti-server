@@ -267,7 +267,7 @@ public class IssueService(
                     }
                     : new UserBasicResponse
                     {
-                        Id = null,
+                        Id = Guid.Empty,
                         Name = "Deleted User",
                         PhotoUrl = null
                     }
@@ -1136,7 +1136,7 @@ public class IssueService(
                         }
                         : new UserBasicResponse
                         {
-                            Id = null,
+                            Id = Guid.Empty,
                             Name = "Deleted User",
                             PhotoUrl = null
                         }
