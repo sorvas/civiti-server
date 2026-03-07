@@ -306,7 +306,7 @@ public class NotificationService(
 
         try
         {
-            var message = new PushNotificationMessage(user.Id, title, body, route);
+            var message = new PushNotificationMessage(user.Id, title, body, route, forceSend);
             if (!pushChannelWriter.TryWrite(message))
             {
                 logger.LogError("Push channel full — dropped push for user {UserId}. Increase ExpoPush:ChannelCapacity if this persists.", user.Id);

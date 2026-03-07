@@ -8,7 +8,8 @@ public record PushNotificationMessage(
     Guid UserId,
     string Title,
     string Body,
-    PushRoute? Route = null);
+    PushRoute? Route = null,
+    bool ForceSend = false);
 
 /// <summary>
 /// Deep-link route data sent in the push notification's data field.
