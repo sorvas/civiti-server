@@ -32,12 +32,13 @@ public class PushTokenService(
     private async Task UpsertTokenAsync(Guid userId, string token, PushTokenPlatform platform, CancellationToken ct)
     {
         var strategy = context.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        await strategy.ExecuteAsync(async (cancellationToken) =>
         {
-            await using var tx = await context.Database.BeginTransactionAsync(ct);
+            context.ChangeTracker.Clear();
+            await using var tx = await context.Database.BeginTransactionAsync(cancellationToken);
 
             PushToken? existing = await context.PushTokens
-                .FirstOrDefaultAsync(pt => pt.Token == token, ct);
+                .FirstOrDefaultAsync(pt => pt.Token == token, cancellationToken);
 
             if (existing != null)
             {
@@ -60,25 +61,28 @@ public class PushTokenService(
                 });
             }
 
-            await context.SaveChangesAsync(ct);
+            await context.SaveChangesAsync(cancellationToken);
 
-            // Enforce per-user token cap by removing the oldest excess tokens
+            // Enforce per-user token cap by removing the oldest excess tokens.
+            // ExecuteDeleteAsync bypasses the change tracker, but this is safe on retry:
+            // ChangeTracker.Clear() resets state and the rolled-back transaction means
+            // excess tokens are re-found and re-deleted idempotently.
             var excessTokenIds = await context.PushTokens
                 .Where(pt => pt.UserId == userId)
                 .OrderByDescending(pt => pt.UpdatedAt)
                 .Skip(MaxTokensPerUser)
                 .Select(pt => pt.Id)
-                .ToListAsync(ct);
+                .ToListAsync(cancellationToken);
 
             if (excessTokenIds.Count > 0)
             {
                 await context.PushTokens
                     .Where(pt => excessTokenIds.Contains(pt.Id))
-                    .ExecuteDeleteAsync(ct);
+                    .ExecuteDeleteAsync(cancellationToken);
             }
 
-            await tx.CommitAsync(ct);
-        });
+            await tx.CommitAsync(cancellationToken);
+        }, ct);
     }
 
     public async Task DeregisterTokenAsync(Guid userId, string token, CancellationToken ct = default)
