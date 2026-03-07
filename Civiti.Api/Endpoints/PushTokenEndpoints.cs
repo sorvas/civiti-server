@@ -30,13 +30,13 @@ public static class PushTokenEndpoints
 
             try
             {
-                var userProfile = await userService.GetUserProfileAsync(supabaseUserId);
-                if (userProfile == null)
+                var userId = await userService.GetUserIdAsync(supabaseUserId);
+                if (userId == null)
                 {
                     return Results.NotFound(new { error = "User profile not found" });
                 }
 
-                await pushTokenService.RegisterTokenAsync(userProfile.Id, request.Token, request.Platform);
+                await pushTokenService.RegisterTokenAsync(userId.Value, request.Token, request.Platform);
                 return Results.Ok(new { success = true });
             }
             catch (AccountDeletedException)
@@ -73,13 +73,13 @@ public static class PushTokenEndpoints
 
             try
             {
-                var userProfile = await userService.GetUserProfileAsync(supabaseUserId);
-                if (userProfile == null)
+                var userId = await userService.GetUserIdAsync(supabaseUserId);
+                if (userId == null)
                 {
                     return Results.NotFound(new { error = "User profile not found" });
                 }
 
-                await pushTokenService.DeregisterTokenAsync(userProfile.Id, request.Token);
+                await pushTokenService.DeregisterTokenAsync(userId.Value, request.Token);
                 return Results.Ok(new { success = true });
             }
             catch (AccountDeletedException)

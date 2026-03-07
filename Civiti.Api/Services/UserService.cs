@@ -83,6 +83,23 @@ public class UserService(
         };
     }
 
+    public async Task<Guid?> GetUserIdAsync(string supabaseUserId)
+    {
+        var user = await context.UserProfiles
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(u => u.SupabaseUserId == supabaseUserId)
+            .Select(u => new { u.Id, u.IsDeleted })
+            .FirstOrDefaultAsync();
+
+        if (user == null)
+            return null;
+        if (user.IsDeleted)
+            throw new AccountDeletedException();
+
+        return user.Id;
+    }
+
     public async Task<UserProfileResponse?> GetUserProfileAsync(string supabaseUserId)
     {
         try
