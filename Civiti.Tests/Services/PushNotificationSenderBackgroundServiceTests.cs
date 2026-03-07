@@ -55,8 +55,13 @@ public class PushNotificationSenderBackgroundServiceTests : IDisposable
         return (user.Id, pushToken.Token);
     }
 
-    private async Task<int> RunServiceWithMessageAsync(
-        PushNotificationMessage message, TestHttpHandler handler)
+    /// <summary>
+    /// Starts the service, writes a single message, and waits deterministically.
+    /// For tests expecting HTTP calls, waits for the handler to be invoked
+    /// <paramref name="expectedCalls"/> times. Otherwise waits for channel drain.
+    /// </summary>
+    private async Task<(int callCount, PushNotificationSenderBackgroundService service)> StartServiceWithMessageAsync(
+        PushNotificationMessage message, TestHttpHandler handler, int expectedCalls = 0)
     {
         var channel = Channel.CreateUnbounded<PushNotificationMessage>();
         await channel.Writer.WriteAsync(message);
@@ -71,10 +76,13 @@ public class PushNotificationSenderBackgroundServiceTests : IDisposable
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await service.StartAsync(cts.Token);
-        await Task.Delay(500);
-        await service.StopAsync(CancellationToken.None);
 
-        return handler.CallCount;
+        if (expectedCalls > 0)
+            await handler.WaitForCallsAsync(expectedCalls, TimeSpan.FromSeconds(3));
+        else
+            await channel.Reader.Completion;
+
+        return (handler.CallCount, service);
     }
 
     [Fact]
@@ -83,8 +91,9 @@ public class PushNotificationSenderBackgroundServiceTests : IDisposable
         var (userId, _) = SeedUserWithToken(pushEnabled: false);
         var handler = TestHttpHandler.AlwaysReturn(OkExpoResponse());
 
-        int calls = await RunServiceWithMessageAsync(
+        var (calls, service) = await StartServiceWithMessageAsync(
             new PushNotificationMessage(userId, "Title", "Body"), handler);
+        await service.StopAsync(CancellationToken.None);
 
         calls.Should().Be(0);
     }
@@ -95,8 +104,10 @@ public class PushNotificationSenderBackgroundServiceTests : IDisposable
         var (userId, _) = SeedUserWithToken(pushEnabled: false);
         var handler = TestHttpHandler.AlwaysReturn(OkExpoResponse());
 
-        int calls = await RunServiceWithMessageAsync(
-            new PushNotificationMessage(userId, "Title", "Body", ForceSend: true), handler);
+        var (calls, service) = await StartServiceWithMessageAsync(
+            new PushNotificationMessage(userId, "Title", "Body", ForceSend: true), handler,
+            expectedCalls: 1);
+        await service.StopAsync(CancellationToken.None);
 
         calls.Should().Be(1);
     }
@@ -107,11 +118,19 @@ public class PushNotificationSenderBackgroundServiceTests : IDisposable
         var (userId, tokenValue) = SeedUserWithToken();
         var handler = TestHttpHandler.AlwaysReturn(DeviceNotRegisteredExpoResponse());
 
-        await RunServiceWithMessageAsync(
-            new PushNotificationMessage(userId, "Title", "Body"), handler);
+        var (_, service) = await StartServiceWithMessageAsync(
+            new PushNotificationMessage(userId, "Title", "Body"), handler,
+            expectedCalls: 1);
 
-        using var db = _dbFactory.CreateContext();
-        db.PushTokens.Any(pt => pt.Token == tokenValue).Should().BeFalse();
+        // Token removal happens after HTTP response parsing — poll until DB reflects it
+        bool tokenRemoved = await PollConditionAsync(() =>
+        {
+            using var db = _dbFactory.CreateContext();
+            return !db.PushTokens.Any(pt => pt.Token == tokenValue);
+        }, TimeSpan.FromSeconds(3));
+
+        await service.StopAsync(CancellationToken.None);
+        tokenRemoved.Should().BeTrue();
     }
 
     [Fact]
@@ -126,10 +145,23 @@ public class PushNotificationSenderBackgroundServiceTests : IDisposable
                 : new HttpResponseMessage(HttpStatusCode.OK)
                     { Content = new StringContent(OkExpoResponse()) });
 
-        int calls = await RunServiceWithMessageAsync(
-            new PushNotificationMessage(userId, "Title", "Body"), handler);
+        var (calls, service) = await StartServiceWithMessageAsync(
+            new PushNotificationMessage(userId, "Title", "Body"), handler,
+            expectedCalls: 2);
+        await service.StopAsync(CancellationToken.None);
 
         calls.Should().Be(2);
+    }
+
+    private static async Task<bool> PollConditionAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition()) return true;
+            await Task.Delay(20);
+        }
+        return false;
     }
 
     private static string OkExpoResponse() =>
@@ -141,17 +173,34 @@ public class PushNotificationSenderBackgroundServiceTests : IDisposable
     private class TestHttpHandler(
         Func<HttpRequestMessage, HttpResponseMessage> factory) : HttpMessageHandler
     {
-        public int CallCount;
+        private int _callCount;
+        private TaskCompletionSource? _tcs;
+        private int _targetCalls;
+
+        public int CallCount => Volatile.Read(ref _callCount);
 
         public static TestHttpHandler AlwaysReturn(string jsonBody) =>
             new(_ => new HttpResponseMessage(HttpStatusCode.OK)
                 { Content = new StringContent(jsonBody) });
 
+        public Task WaitForCallsAsync(int count, TimeSpan timeout)
+        {
+            _targetCalls = count;
+            _tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            if (Volatile.Read(ref _callCount) >= count)
+                _tcs.TrySetResult();
+
+            return _tcs.Task.WaitAsync(timeout);
+        }
+
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Interlocked.Increment(ref CallCount);
-            return Task.FromResult(factory(request));
+            var result = factory(request);
+            if (Interlocked.Increment(ref _callCount) >= _targetCalls)
+                _tcs?.TrySetResult();
+            return Task.FromResult(result);
         }
     }
 }

@@ -92,12 +92,13 @@ public class PushNotificationSenderBackgroundService(
         var payloads = tokens.Select(token => BuildPayload(token, message)).ToList();
 
         // Send in batches — each batch is independently error-handled
+        var staleTokens = new List<string>();
         for (int i = 0; i < payloads.Count; i += config.BatchSize)
         {
             var batch = payloads.Skip(i).Take(config.BatchSize).ToList();
             try
             {
-                await SendBatchAsync(batch, ct);
+                staleTokens.AddRange(await SendBatchAsync(batch, ct));
             }
             catch (Exception ex)
             {
@@ -105,7 +106,7 @@ public class PushNotificationSenderBackgroundService(
                     i / config.BatchSize);
                 try
                 {
-                    await SendBatchAsync(batch, ct);
+                    staleTokens.AddRange(await SendBatchAsync(batch, ct));
                 }
                 catch (Exception retryEx)
                 {
@@ -113,6 +114,14 @@ public class PushNotificationSenderBackgroundService(
                         i / config.BatchSize, message.UserId, batch.Count);
                 }
             }
+        }
+
+        // Remove stale tokens using the already-open context
+        if (staleTokens.Count > 0)
+        {
+            await context.PushTokens
+                .Where(pt => staleTokens.Contains(pt.Token))
+                .ExecuteDeleteAsync(ct);
         }
     }
 
@@ -138,7 +147,10 @@ public class PushNotificationSenderBackgroundService(
         };
     }
 
-    private async Task SendBatchAsync(List<ExpoPushPayload> batch, CancellationToken ct)
+    /// <summary>
+    /// Sends a batch to Expo and returns any stale tokens (DeviceNotRegistered) for removal.
+    /// </summary>
+    private async Task<List<string>> SendBatchAsync(List<ExpoPushPayload> batch, CancellationToken ct)
     {
         using var client = httpClientFactory.CreateClient("ExpoPush");
 
@@ -161,19 +173,18 @@ public class PushNotificationSenderBackgroundService(
                 $"Expo push API returned {response.StatusCode}: {body}");
         }
 
-        // Parse response to handle per-ticket errors
+        // Parse response to collect stale tokens
         var responseBody = await response.Content.ReadAsStringAsync(ct);
-        await HandleExpoPushResponseAsync(responseBody, batch, ct);
+        return CollectStaleTokens(responseBody, batch);
     }
 
-    private async Task HandleExpoPushResponseAsync(string responseBody, List<ExpoPushPayload> batch, CancellationToken ct)
+    private List<string> CollectStaleTokens(string responseBody, List<ExpoPushPayload> batch)
     {
+        var staleTokens = new List<string>();
         try
         {
             var result = JsonSerializer.Deserialize<ExpoPushResponse>(responseBody, JsonOptions);
-            if (result?.Data == null) return;
-
-            var tokensToRemove = new List<string>();
+            if (result?.Data == null) return staleTokens;
 
             for (int i = 0; i < result.Data.Count && i < batch.Count; i++)
             {
@@ -182,7 +193,7 @@ public class PushNotificationSenderBackgroundService(
 
                 if (ticket.Details?.Error == "DeviceNotRegistered")
                 {
-                    tokensToRemove.Add(batch[i].To);
+                    staleTokens.Add(batch[i].To);
                     logger.LogInformation("Push token no longer registered, removing (token ending ...{Suffix})",
                         batch[i].To.Length > 8 ? batch[i].To[^8..] : batch[i].To);
                 }
@@ -193,20 +204,12 @@ public class PushNotificationSenderBackgroundService(
                         ticket.Details?.Error ?? "unknown", ticket.Status);
                 }
             }
-
-            if (tokensToRemove.Count > 0)
-            {
-                using IServiceScope scope = scopeFactory.CreateScope();
-                var context = scope.ServiceProvider.GetRequiredService<CivitiDbContext>();
-                await context.PushTokens
-                    .Where(pt => tokensToRemove.Contains(pt.Token))
-                    .ExecuteDeleteAsync(ct);
-            }
         }
         catch (JsonException ex)
         {
             logger.LogError(ex, "Failed to parse Expo push response. Raw body: {ResponseBody}", responseBody);
         }
+        return staleTokens;
     }
 
     // DTOs for Expo Push API
