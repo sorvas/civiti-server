@@ -410,6 +410,11 @@ ExpoPushConfiguration expoPushConfig = new()
 };
 builder.Services.AddSingleton(expoPushConfig);
 
+if (!string.IsNullOrWhiteSpace(expoPushConfig.AccessToken))
+    Log.Information("Expo push configured with access token.");
+else
+    Log.Warning("Expo push access token not configured — operating in unauthenticated mode (low-volume only).");
+
 // Push notification channel (bounded, drop-write if full)
 Channel<PushNotificationMessage> pushChannel = Channel.CreateBounded<PushNotificationMessage>(
     new BoundedChannelOptions(expoPushConfig.ChannelCapacity) { FullMode = BoundedChannelFullMode.DropWrite });
