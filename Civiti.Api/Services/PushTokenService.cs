@@ -55,21 +55,21 @@ public class PushTokenService(
                 Platform = platform
             });
             await context.SaveChangesAsync();
+        }
 
-            // Enforce per-user token cap by removing the oldest excess tokens
-            var excessTokenIds = await context.PushTokens
-                .Where(pt => pt.UserId == userId)
-                .OrderByDescending(pt => pt.UpdatedAt)
-                .Skip(MaxTokensPerUser)
-                .Select(pt => pt.Id)
-                .ToListAsync();
+        // Enforce per-user token cap by removing the oldest excess tokens
+        var excessTokenIds = await context.PushTokens
+            .Where(pt => pt.UserId == userId)
+            .OrderByDescending(pt => pt.UpdatedAt)
+            .Skip(MaxTokensPerUser)
+            .Select(pt => pt.Id)
+            .ToListAsync();
 
-            if (excessTokenIds.Count > 0)
-            {
-                await context.PushTokens
-                    .Where(pt => excessTokenIds.Contains(pt.Id))
-                    .ExecuteDeleteAsync();
-            }
+        if (excessTokenIds.Count > 0)
+        {
+            await context.PushTokens
+                .Where(pt => excessTokenIds.Contains(pt.Id))
+                .ExecuteDeleteAsync();
         }
     }
 
