@@ -31,10 +31,10 @@ public class NotificationService(
 
     public Task NotifyIssueSubmittedAsync(Issue issue, UserProfile author)
     {
-        if (!author.IssueUpdatesEnabled) return Task.CompletedTask;
-
         EnqueuePush(author, "Problemă trimisă", $"\"{issue.Title}\" a fost trimisă spre aprobare.",
             new PushRoute("issue", issue.Id.ToString()));
+
+        if (!author.IssueUpdatesEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.IssueSubmitted, author.Email, new Dictionary<string, string>
         {
@@ -47,10 +47,10 @@ public class NotificationService(
 
     public Task NotifyIssueApprovedAsync(Issue issue, UserProfile author)
     {
-        if (!author.IssueUpdatesEnabled) return Task.CompletedTask;
-
         EnqueuePush(author, "Problemă aprobată", $"\"{issue.Title}\" a fost aprobată și este acum publică.",
             new PushRoute("issue", issue.Id.ToString()));
+
+        if (!author.IssueUpdatesEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.IssueApproved, author.Email, new Dictionary<string, string>
         {
@@ -63,10 +63,10 @@ public class NotificationService(
 
     public Task NotifyIssueRejectedAsync(Issue issue, UserProfile author, string reason)
     {
-        if (!author.IssueUpdatesEnabled) return Task.CompletedTask;
-
         EnqueuePush(author, "Problemă respinsă", $"\"{issue.Title}\" a fost respinsă: {Truncate(reason, 100)}",
             new PushRoute("issue", issue.Id.ToString()));
+
+        if (!author.IssueUpdatesEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.IssueRejected, author.Email, new Dictionary<string, string>
         {
@@ -78,10 +78,10 @@ public class NotificationService(
 
     public Task NotifyChangesRequestedAsync(Issue issue, UserProfile author, string notes)
     {
-        if (!author.IssueUpdatesEnabled) return Task.CompletedTask;
-
         EnqueuePush(author, "Modificări necesare", $"\"{issue.Title}\" necesită modificări.",
             new PushRoute("issue", issue.Id.ToString()));
+
+        if (!author.IssueUpdatesEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.ChangesRequested, author.Email, new Dictionary<string, string>
         {
@@ -96,11 +96,11 @@ public class NotificationService(
     public async Task NotifyIssueResolvedAsync(Issue issue, UserProfile author, CancellationToken cancellationToken = default)
     {
         // Notify author
+        EnqueuePush(author, "Problemă rezolvată", $"\"{issue.Title}\" a fost marcată ca rezolvată!",
+            new PushRoute("issue", issue.Id.ToString()));
+
         if (author.IssueUpdatesEnabled)
         {
-            EnqueuePush(author, "Problemă rezolvată", $"\"{issue.Title}\" a fost marcată ca rezolvată!",
-                new PushRoute("issue", issue.Id.ToString()));
-
             await EnqueueEmailAsync(EmailNotificationType.IssueResolved, author.Email, new Dictionary<string, string>
             {
                 [UserName] = author.DisplayName,
@@ -131,7 +131,7 @@ public class NotificationService(
 
     public Task NotifyNewCommentOnIssueAsync(Issue issue, UserProfile issueAuthor, UserProfile commenter, string commentExcerpt)
     {
-        if (!issueAuthor.IssueUpdatesEnabled || issueAuthor.Id == commenter.Id) return Task.CompletedTask;
+        if (issueAuthor.Id == commenter.Id) return Task.CompletedTask;
 
         // Debounce: max 1 notification per 5 min per issue author per issue
         var debounceKey = $"notify:comment:{issue.Id}:{issueAuthor.Id}";
@@ -141,6 +141,8 @@ public class NotificationService(
         EnqueuePush(issueAuthor, "Comentariu nou",
             $"{commenter.DisplayName} a comentat la \"{Truncate(issue.Title, 40)}\"",
             new PushRoute("issue", issue.Id.ToString()));
+
+        if (!issueAuthor.IssueUpdatesEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.NewCommentOnIssue, issueAuthor.Email, new Dictionary<string, string>
         {
@@ -156,7 +158,6 @@ public class NotificationService(
     public Task NotifyCommentReplyAsync(UserProfile parentCommentUser, UserProfile replier, Guid issueId, string replyExcerpt)
     {
         if (parentCommentUser.Id == replier.Id) return Task.CompletedTask;
-        if (!parentCommentUser.IssueUpdatesEnabled) return Task.CompletedTask;
 
         // Debounce: max 1 reply notification per 5 min per parent comment user
         var debounceKey = $"notify:reply:{parentCommentUser.Id}:{issueId}";
@@ -166,6 +167,8 @@ public class NotificationService(
         EnqueuePush(parentCommentUser, "Răspuns la comentariu",
             $"{replier.DisplayName} ți-a răspuns la un comentariu.",
             new PushRoute("issue", issueId.ToString()));
+
+        if (!parentCommentUser.IssueUpdatesEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.ReplyToComment, parentCommentUser.Email, new Dictionary<string, string>
         {
@@ -179,11 +182,13 @@ public class NotificationService(
 
     public Task NotifyVoteMilestoneAsync(Issue issue, UserProfile author, int voteCount)
     {
-        if (!author.IssueUpdatesEnabled || !IsMilestone(voteCount)) return Task.CompletedTask;
+        if (!IsMilestone(voteCount)) return Task.CompletedTask;
 
         EnqueuePush(author, "Prag de voturi atins",
             $"\"{Truncate(issue.Title, 40)}\" a atins {voteCount} voturi!",
             new PushRoute("issue", issue.Id.ToString()));
+
+        if (!author.IssueUpdatesEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.VoteMilestone, author.Email, new Dictionary<string, string>
         {
@@ -197,11 +202,13 @@ public class NotificationService(
 
     public Task NotifyEmailSupportMilestoneAsync(Issue issue, UserProfile author, int emailCount)
     {
-        if (!author.IssueUpdatesEnabled || !IsMilestone(emailCount)) return Task.CompletedTask;
+        if (!IsMilestone(emailCount)) return Task.CompletedTask;
 
         EnqueuePush(author, "Susținere prin email",
             $"\"{Truncate(issue.Title, 40)}\" a primit {emailCount} emailuri de susținere!",
             new PushRoute("issue", issue.Id.ToString()));
+
+        if (!author.IssueUpdatesEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.EmailSupportMilestone, author.Email, new Dictionary<string, string>
         {
@@ -217,10 +224,10 @@ public class NotificationService(
 
     public Task NotifyLevelUpAsync(UserProfile user, int newLevel)
     {
-        if (!user.AchievementsEnabled) return Task.CompletedTask;
-
         EnqueuePush(user, "Nivel nou!", $"Felicitări! Ai avansat la nivelul {newLevel}.",
             new PushRoute("achievements"));
+
+        if (!user.AchievementsEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.LevelUp, user.Email, new Dictionary<string, string>
         {
@@ -233,10 +240,10 @@ public class NotificationService(
 
     public Task NotifyBadgeEarnedAsync(UserProfile user, string badgeName)
     {
-        if (!user.AchievementsEnabled) return Task.CompletedTask;
-
         EnqueuePush(user, "Insignă nouă!", $"Ai primit insigna \"{badgeName}\".",
             new PushRoute("badges"));
+
+        if (!user.AchievementsEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.BadgeEarned, user.Email, new Dictionary<string, string>
         {
@@ -249,10 +256,10 @@ public class NotificationService(
 
     public Task NotifyAchievementCompletedAsync(UserProfile user, string achievementName)
     {
-        if (!user.AchievementsEnabled) return Task.CompletedTask;
-
         EnqueuePush(user, "Realizare completată!", $"Ai completat realizarea \"{achievementName}\".",
             new PushRoute("achievements"));
+
+        if (!user.AchievementsEnabled) return Task.CompletedTask;
 
         return EnqueueEmailAsync(EmailNotificationType.AchievementCompleted, user.Email, new Dictionary<string, string>
         {
@@ -346,10 +353,10 @@ public class NotificationService(
 
             if (followerIds.Count == 0) return;
 
-            // Get their profiles with preference check
+            // Get their profiles (no email preference filter — push is independent)
             List<UserProfile> followers = await context.UserProfiles
                 .AsNoTracking()
-                .Where(u => followerIds.Contains(u.Id) && u.IssueUpdatesEnabled)
+                .Where(u => followerIds.Contains(u.Id))
                 .ToListAsync(cancellationToken);
 
             var (pushTitle, statusText) = type switch
@@ -363,6 +370,8 @@ public class NotificationService(
             foreach (UserProfile follower in followers)
             {
                 EnqueuePush(follower, pushTitle, pushBody, new PushRoute("issue", issueId.ToString()));
+
+                if (!follower.IssueUpdatesEnabled) continue;
 
                 await EnqueueEmailAsync(type, follower.Email, new Dictionary<string, string>
                 {

@@ -95,13 +95,20 @@ public class PushNotificationSenderBackgroundService(
         var payloads = tokens.Select(token => BuildPayload(token, message)).ToList();
 
         // Send in batches — each batch is independently error-handled
+        using var client = httpClientFactory.CreateClient("ExpoPush");
+        if (!string.IsNullOrWhiteSpace(config.AccessToken))
+        {
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", config.AccessToken);
+        }
+
         var staleTokens = new List<string>();
         for (int i = 0; i < payloads.Count; i += config.BatchSize)
         {
             var batch = payloads.Skip(i).Take(config.BatchSize).ToList();
             try
             {
-                staleTokens.AddRange(await SendBatchAsync(batch, ct));
+                staleTokens.AddRange(await SendBatchAsync(client, batch, ct));
             }
             catch (Exception ex)
             {
@@ -109,7 +116,7 @@ public class PushNotificationSenderBackgroundService(
                     i / config.BatchSize);
                 try
                 {
-                    staleTokens.AddRange(await SendBatchAsync(batch, ct));
+                    staleTokens.AddRange(await SendBatchAsync(client, batch, ct));
                 }
                 catch (Exception retryEx)
                 {
@@ -153,16 +160,8 @@ public class PushNotificationSenderBackgroundService(
     /// <summary>
     /// Sends a batch to Expo and returns any stale tokens (DeviceNotRegistered) for removal.
     /// </summary>
-    private async Task<List<string>> SendBatchAsync(List<ExpoPushPayload> batch, CancellationToken ct)
+    private async Task<List<string>> SendBatchAsync(HttpClient client, List<ExpoPushPayload> batch, CancellationToken ct)
     {
-        using var client = httpClientFactory.CreateClient("ExpoPush");
-
-        if (!string.IsNullOrWhiteSpace(config.AccessToken))
-        {
-            client.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", config.AccessToken);
-        }
-
         var json = JsonSerializer.Serialize(batch, JsonOptions);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
