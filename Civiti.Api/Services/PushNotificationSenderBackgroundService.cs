@@ -157,7 +157,8 @@ public class PushNotificationSenderBackgroundService(
         {
             var body = await response.Content.ReadAsStringAsync(ct);
             logger.LogError("Expo push API returned {StatusCode}: {Body}", response.StatusCode, body);
-            return;
+            throw new HttpRequestException(
+                $"Expo push API returned {response.StatusCode}: {body}");
         }
 
         // Parse response to handle per-ticket errors
