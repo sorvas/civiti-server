@@ -119,13 +119,23 @@ public class NotificationService(
     {
         Issue? issue = await context.Issues
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .Include(i => i.User)
             .FirstOrDefaultAsync(i => i.Id == issueId, cancellationToken);
 
         if (issue == null) return;
 
         // Notify author (mirrors NotifyIssueResolvedAsync)
-        if (issue.User != null)
+        if (issue.User == null)
+        {
+            logger.LogDebug("Author not found for cancelled issue {IssueId} — skipping author notification", issueId);
+        }
+        else if (issue.User.IsDeleted)
+        {
+            logger.LogDebug("Author {UserId} is soft-deleted for cancelled issue {IssueId} — skipping author notification",
+                issue.UserId, issueId);
+        }
+        else
         {
             EnqueuePush(issue.User, "Problemă anulată", $"\"{Truncate(issue.Title, 40)}\" a fost anulată.",
                 new PushRoute("issue", issue.Id.ToString()));
