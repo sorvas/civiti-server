@@ -2,6 +2,7 @@ using Civiti.Api.Data;
 using Civiti.Api.Models.Domain;
 using Civiti.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Civiti.Api.Services;
 
@@ -18,11 +19,10 @@ public class PushTokenService(
         {
             await UpsertTokenAsync(userId, token, parsedPlatform, ct);
         }
-        catch (DbUpdateException ex)
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: "23505" })
         {
-            // Race condition: another request inserted the same token concurrently.
+            // Unique-constraint violation: another request inserted the same token concurrently.
             // Retry once — the token now exists, so the upsert will take the update path.
-            // Note: UpsertTokenAsync clears the ChangeTracker at the start of its lambda.
             logger.LogDebug(ex, "Race condition detected registering token for user {UserId}, retrying once", userId);
             await UpsertTokenAsync(userId, token, parsedPlatform, ct);
         }
