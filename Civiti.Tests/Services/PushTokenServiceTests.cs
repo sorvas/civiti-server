@@ -110,7 +110,7 @@ public class PushTokenServiceTests : IDisposable
                     UserId = userId,
                     Token = $"ExponentPushToken[token{i}]",
                     Platform = PushTokenPlatform.Ios,
-                    UpdatedAt = new DateTime(2025, 1, 1, 0, i, 0, DateTimeKind.Utc) // token0 is oldest
+                    UpdatedAt = DateTime.UtcNow.AddMinutes(-(10 - i)) // token0 is oldest, token9 is newest
                 });
             }
             await ctx.SaveChangesAsync();

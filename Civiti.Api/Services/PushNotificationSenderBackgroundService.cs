@@ -180,7 +180,6 @@ public class PushNotificationSenderBackgroundService(
         {
             var body = await response.Content.ReadAsStringAsync(ct);
             var truncatedBody = body.Length > MaxErrorBodyLength ? body[..MaxErrorBodyLength] + "…" : body;
-            logger.LogWarning("Expo push API returned {StatusCode}: {Body}", response.StatusCode, truncatedBody);
             throw new HttpRequestException(
                 $"Expo push API returned {response.StatusCode}: {truncatedBody}");
         }
