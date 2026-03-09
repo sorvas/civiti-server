@@ -162,6 +162,15 @@ public class PushNotificationSenderBackgroundServiceTests : IDisposable
             expectedCalls: 2);
 
         calls.Should().Be(2);
+
+        _logger.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Failed to send push batch")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
 
     private static string OkExpoResponse() =>

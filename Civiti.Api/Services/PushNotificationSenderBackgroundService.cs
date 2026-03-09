@@ -43,7 +43,7 @@ public class PushNotificationSenderBackgroundService(
                     {
                         await ProcessMessageAsync(message, stoppingToken);
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         logger.LogError(ex, "Failed to process push notification for user {UserId}", message.UserId);
                     }
