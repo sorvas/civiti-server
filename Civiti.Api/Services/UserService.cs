@@ -83,6 +83,23 @@ public class UserService(
         };
     }
 
+    public async Task<Guid?> GetUserIdAsync(string supabaseUserId)
+    {
+        var user = await context.UserProfiles
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(u => u.SupabaseUserId == supabaseUserId)
+            .Select(u => new { u.Id, u.IsDeleted })
+            .FirstOrDefaultAsync();
+
+        if (user == null)
+            return null;
+        if (user.IsDeleted)
+            throw new AccountDeletedException();
+
+        return user.Id;
+    }
+
     public async Task<UserProfileResponse?> GetUserProfileAsync(string supabaseUserId)
     {
         try
@@ -120,6 +137,7 @@ public class UserService(
                 CommunityNewsEnabled = user.CommunityNewsEnabled,
                 MonthlyDigestEnabled = user.MonthlyDigestEnabled,
                 AchievementsEnabled = user.AchievementsEnabled,
+                PushNotificationsEnabled = user.PushNotificationsEnabled,
                 Points = user.Points,
                 Level = user.Level,
                 EmailVerified = user.EmailVerified,
@@ -183,6 +201,7 @@ public class UserService(
                 CommunityNewsEnabled = signupMetadata?.CommunityNewsEnabled ?? true,
                 MonthlyDigestEnabled = signupMetadata?.MonthlyDigestEnabled ?? false,
                 AchievementsEnabled = signupMetadata?.AchievementsEnabled ?? true,
+                PushNotificationsEnabled = signupMetadata?.PushNotificationsEnabled ?? true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 LastActivityDate = DateTime.UtcNow,
@@ -370,6 +389,7 @@ public class UserService(
                 CommunityNewsEnabled = request.CommunityNewsEnabled ?? true,
                 MonthlyDigestEnabled = request.MonthlyDigestEnabled ?? false,
                 AchievementsEnabled = request.AchievementsEnabled ?? true,
+                PushNotificationsEnabled = request.PushNotificationsEnabled ?? true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 LastActivityDate = DateTime.UtcNow,
@@ -457,6 +477,9 @@ public class UserService(
 
             if (request.AchievementsEnabled.HasValue)
                 user.AchievementsEnabled = request.AchievementsEnabled.Value;
+
+            if (request.PushNotificationsEnabled.HasValue)
+                user.PushNotificationsEnabled = request.PushNotificationsEnabled.Value;
 
             user.UpdatedAt = DateTime.UtcNow;
 
@@ -580,7 +603,7 @@ public class UserService(
             bool alreadyDeleted = false;
             Guid? deletedUserId = null;
 
-            await strategy.ExecuteAsync(async () =>
+            await strategy.ExecuteAsync(async (cancellationToken) =>
             {
                 // Reset closure state on each retry to prevent stale flags from a
                 // previous attempt (e.g. SaveChangesAsync succeeded but a later
@@ -594,7 +617,7 @@ public class UserService(
 
                 UserProfile? user = await context.UserProfiles
                     .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId);
+                    .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId, cancellationToken);
 
                 if (user == null)
                 {
@@ -611,7 +634,7 @@ public class UserService(
 
                 // Explicit transaction ensures all PII scrub fields are committed atomically.
                 // Without this, a failure mid-SaveChangesAsync could leave partial PII intact.
-                await using var transaction = await context.Database.BeginTransactionAsync();
+                await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
                 // 1. Anonymize PII and soft-delete locally FIRST so the DB is always consistent.
                 //    Keep the original SupabaseUserId so the global query filter + the
@@ -632,16 +655,22 @@ public class UserService(
                 user.CommunityNewsEnabled = false;
                 user.MonthlyDigestEnabled = false;
                 user.AchievementsEnabled = false;
+                user.PushNotificationsEnabled = false;
+
+                // Remove all push tokens for this user
+                await context.PushTokens
+                    .Where(pt => pt.UserId == user.Id)
+                    .ExecuteDeleteAsync(cancellationToken);
 
                 // Mark as deleted
                 user.IsDeleted = true;
                 user.DeletedAt = DateTime.UtcNow;
                 user.UpdatedAt = DateTime.UtcNow;
 
-                await context.SaveChangesAsync();
-                await transaction.CommitAsync();
+                await context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
                 deletedUserId = user.Id;
-            });
+            }, CancellationToken.None);
 
             // User was not found in the database
             if (deletedUserId == null && !alreadyDeleted)

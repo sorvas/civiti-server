@@ -161,10 +161,12 @@ public class UserServiceTests : IDisposable
         user.CommunityNewsEnabled = true;
         user.MonthlyDigestEnabled = true;
         user.AchievementsEnabled = true;
+        user.PushNotificationsEnabled = true;
 
         using (var ctx = _dbFactory.CreateContext())
         {
             ctx.UserProfiles.Add(user);
+            ctx.PushTokens.Add(new PushToken { UserId = user.Id, Token = "ExponentPushToken[test]", Platform = PushTokenPlatform.Ios });
             await ctx.SaveChangesAsync();
         }
 
@@ -200,6 +202,10 @@ public class UserServiceTests : IDisposable
         deleted.CommunityNewsEnabled.Should().BeFalse();
         deleted.MonthlyDigestEnabled.Should().BeFalse();
         deleted.AchievementsEnabled.Should().BeFalse();
+        deleted.PushNotificationsEnabled.Should().BeFalse();
+
+        // Push tokens removed
+        (await verifyCtx.PushTokens.AnyAsync(pt => pt.UserId == user.Id)).Should().BeFalse();
     }
 
     [Fact]
