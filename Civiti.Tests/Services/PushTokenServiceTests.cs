@@ -110,7 +110,7 @@ public class PushTokenServiceTests : IDisposable
                     UserId = userId,
                     Token = $"ExponentPushToken[token{i}]",
                     Platform = PushTokenPlatform.Ios,
-                    UpdatedAt = DateTime.UtcNow.AddMinutes(-10 + i) // token0 is oldest
+                    UpdatedAt = new DateTime(2025, 1, 1, 0, i, 0, DateTimeKind.Utc) // token0 is oldest
                 });
             }
             await ctx.SaveChangesAsync();
@@ -121,9 +121,9 @@ public class PushTokenServiceTests : IDisposable
 
         using var verifyCtx = _dbFactory.CreateContext();
         var tokens = await verifyCtx.PushTokens.Where(pt => pt.UserId == userId).ToListAsync();
-        tokens.Should().HaveCount(10);
-        tokens.Should().NotContain(pt => pt.Token == "ExponentPushToken[token0]", "oldest token should be evicted");
-        tokens.Should().Contain(pt => pt.Token == "ExponentPushToken[token_new]");
+        tokens.Select(pt => pt.Token).Should().BeEquivalentTo(
+            Enumerable.Range(1, 9).Select(i => $"ExponentPushToken[token{i}]")
+                .Append("ExponentPushToken[token_new]"));
     }
 
     // ── RegisterTokenAsync: invalid platform ──
