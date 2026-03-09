@@ -44,7 +44,7 @@ public class PushNotificationSenderBackgroundService(
                     {
                         await ProcessMessageAsync(message, stoppingToken);
                     }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    catch (Exception ex) when (!(ex is OperationCanceledException && stoppingToken.IsCancellationRequested))
                     {
                         logger.LogError(ex, "Failed to process push notification for user {UserId}", message.UserId);
                     }
@@ -111,7 +111,7 @@ public class PushNotificationSenderBackgroundService(
             {
                 staleTokens.AddRange(await SendBatchAsync(client, batch, ct));
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (!(ex is OperationCanceledException && ct.IsCancellationRequested))
             {
                 logger.LogWarning(ex, "First attempt failed for push batch {BatchIndex}, retrying once...",
                     i / config.BatchSize);
@@ -119,7 +119,7 @@ public class PushNotificationSenderBackgroundService(
                 {
                     staleTokens.AddRange(await SendBatchAsync(client, batch, ct));
                 }
-                catch (Exception retryEx) when (retryEx is not OperationCanceledException)
+                catch (Exception retryEx) when (!(retryEx is OperationCanceledException && ct.IsCancellationRequested))
                 {
                     logger.LogError(retryEx, "Failed to send push batch {BatchIndex} for user {UserId} ({TokenCount} tokens)",
                         i / config.BatchSize, message.UserId, batch.Count);
@@ -136,7 +136,7 @@ public class PushNotificationSenderBackgroundService(
                     .Where(pt => staleTokens.Contains(pt.Token))
                     .ExecuteDeleteAsync(ct);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (!(ex is OperationCanceledException && ct.IsCancellationRequested))
             {
                 logger.LogWarning(ex, "Failed to remove {Count} stale push token(s) for user {UserId}; will retry on next delivery.",
                     staleTokens.Count, message.UserId);
@@ -219,7 +219,8 @@ public class PushNotificationSenderBackgroundService(
         }
         catch (JsonException ex)
         {
-            logger.LogError(ex, "Failed to parse Expo push response. Raw body: {ResponseBody}", responseBody);
+            var truncated = responseBody.Length > MaxErrorBodyLength ? responseBody[..MaxErrorBodyLength] + "…" : responseBody;
+            logger.LogError(ex, "Failed to parse Expo push response. Raw body: {ResponseBody}", truncated);
         }
         return staleTokens;
     }
