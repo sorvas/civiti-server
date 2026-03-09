@@ -408,8 +408,8 @@ ExpoPushConfiguration expoPushConfig = new()
     ChannelCapacity = GetEnvOrConfigInt("EXPO_PUSH_CHANNEL_CAPACITY", "ExpoPush:ChannelCapacity", 10_000),
     BatchSize = GetEnvOrConfigInt("EXPO_PUSH_BATCH_SIZE", "ExpoPush:BatchSize", 100)
 };
-if (expoPushConfig.BatchSize <= 0)
-    throw new InvalidOperationException($"ExpoPush:BatchSize must be > 0 (got {expoPushConfig.BatchSize}).");
+if (expoPushConfig.BatchSize <= 0 || expoPushConfig.BatchSize > 100)
+    throw new InvalidOperationException($"ExpoPush:BatchSize must be between 1 and 100 inclusive (got {expoPushConfig.BatchSize}).");
 
 builder.Services.AddSingleton(expoPushConfig);
 
