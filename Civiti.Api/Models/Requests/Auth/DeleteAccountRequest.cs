@@ -9,7 +9,7 @@ public class DeleteAccountRequest : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (!string.IsNullOrEmpty(Confirmation) && Confirmation != "DELETE")
+        if (!string.IsNullOrWhiteSpace(Confirmation) && Confirmation != "DELETE")
         {
             yield return new ValidationResult(
                 "Field 'confirmation' must be exactly \"DELETE\" to proceed.",

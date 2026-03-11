@@ -60,4 +60,16 @@ public class DeleteAccountRequestValidatorTests
         results.Should().ContainSingle(r =>
             r.MemberNames.Contains(nameof(DeleteAccountRequest.Confirmation)));
     }
+
+    [Fact]
+    public void Should_Fail_With_Single_Error_When_Confirmation_Is_Whitespace()
+    {
+        var request = new DeleteAccountRequest { Confirmation = "   " };
+
+        var isValid = TryValidate(request, out var results);
+
+        isValid.Should().BeFalse();
+        results.Should().ContainSingle(r =>
+            r.MemberNames.Contains(nameof(DeleteAccountRequest.Confirmation)));
+    }
 }
