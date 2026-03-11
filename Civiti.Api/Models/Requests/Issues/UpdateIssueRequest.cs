@@ -82,6 +82,6 @@ public class UpdateIssueRequest
     /// <summary>
     /// URLs of uploaded photos (replaces existing photos, max 8)
     /// </summary>
-    [MaxLength(IssueValidationLimits.MaxPhotoCount, ErrorMessage = "A maximum of 8 photos are allowed.")]
+    [MaxLength(IssueValidationLimits.MaxPhotoCount, ErrorMessage = "A maximum of {1} photos are allowed.")]
     public List<string>? PhotoUrls { get; set; }
 }

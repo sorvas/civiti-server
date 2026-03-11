@@ -91,7 +91,7 @@ public class CreateIssueRequest
     /// URLs of uploaded photos (max 8 photos)
     /// </summary>
     /// <example>["https://storage.civica.ro/photos/issue-123-photo1.jpg"]</example>
-    [MaxLength(IssueValidationLimits.MaxPhotoCount, ErrorMessage = "A maximum of 8 photos are allowed.")]
+    [MaxLength(IssueValidationLimits.MaxPhotoCount, ErrorMessage = "A maximum of {1} photos are allowed.")]
     public List<string>? PhotoUrls { get; set; }
 }
 
