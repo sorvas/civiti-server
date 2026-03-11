@@ -48,4 +48,16 @@ public class DeleteAccountRequestValidatorTests
             r.MemberNames.Contains(nameof(DeleteAccountRequest.Confirmation)) &&
             r.ErrorMessage!.Contains("DELETE"));
     }
+
+    [Fact]
+    public void Should_Fail_With_Single_Error_When_Confirmation_Is_Empty()
+    {
+        var request = new DeleteAccountRequest { Confirmation = "" };
+
+        var isValid = TryValidate(request, out var results);
+
+        isValid.Should().BeFalse();
+        results.Should().ContainSingle(r =>
+            r.MemberNames.Contains(nameof(DeleteAccountRequest.Confirmation)));
+    }
 }
