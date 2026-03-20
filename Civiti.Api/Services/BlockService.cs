@@ -137,14 +137,15 @@ public class BlockService(
                 throw new AccountDeletedException();
 
             List<BlockedUserResponse> blockedUsers = await context.BlockedUsers
+                .IgnoreQueryFilters()
                 .Where(b => b.UserId == user.Id)
                 .OrderByDescending(b => b.CreatedAt)
                 .Take(500)
                 .Select(b => new BlockedUserResponse
                 {
                     UserId = b.BlockedUserId,
-                    DisplayName = b.Blocked != null ? b.Blocked.DisplayName : "Deleted User",
-                    PhotoUrl = b.Blocked != null ? b.Blocked.PhotoUrl : null,
+                    DisplayName = b.Blocked == null || b.Blocked.IsDeleted ? "Deleted User" : b.Blocked.DisplayName,
+                    PhotoUrl = b.Blocked == null || b.Blocked.IsDeleted ? null : b.Blocked.PhotoUrl,
                     BlockedAt = b.CreatedAt
                 })
                 .ToListAsync();

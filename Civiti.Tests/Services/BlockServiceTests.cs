@@ -202,6 +202,32 @@ public class BlockServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetBlockedUsers_Should_Return_DeletedUser_Placeholder()
+    {
+        var user = TestDataBuilder.CreateUser();
+        var deletedTarget = TestDataBuilder.CreateUser(displayName: "Gone User");
+        deletedTarget.IsDeleted = true;
+        deletedTarget.DeletedAt = DateTime.UtcNow;
+        var block = TestDataBuilder.CreateBlockedUser(userId: user.Id, blockedUserId: deletedTarget.Id);
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.AddRange(user, deletedTarget);
+            ctx.BlockedUsers.Add(block);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var (success, data, _) = await svc.GetBlockedUsersAsync(user.SupabaseUserId);
+
+        success.Should().BeTrue();
+        data.Should().HaveCount(1);
+        data![0].UserId.Should().Be(deletedTarget.Id);
+        data[0].DisplayName.Should().Be("Deleted User");
+        data[0].PhotoUrl.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetBlockedUsers_Should_Return_Empty_List()
     {
         var user = TestDataBuilder.CreateUser();
