@@ -185,7 +185,8 @@ public static class TestDataBuilder
         Guid? reporterId = null,
         string targetType = "Issue",
         Guid? targetId = null,
-        ReportReason reason = ReportReason.Spam)
+        ReportReason reason = ReportReason.Spam,
+        DateTime? createdAt = null)
     {
         return new Report
         {
@@ -195,7 +196,7 @@ public static class TestDataBuilder
             TargetId = targetId ?? Guid.NewGuid(),
             Reason = reason,
             Status = ReportStatus.Pending,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = createdAt ?? DateTime.UtcNow
         };
     }
 

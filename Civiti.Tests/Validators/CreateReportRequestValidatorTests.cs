@@ -39,10 +39,14 @@ public class CreateReportRequestValidatorTests
         results.Should().Contain(r => r.MemberNames.Contains("Reason"));
     }
 
-    [Fact]
-    public void Should_Fail_When_Reason_Is_Invalid()
+    [Theory]
+    [InlineData("NotAReason")]
+    [InlineData("   ")]
+    [InlineData("99")]
+    [InlineData("-1")]
+    public void Should_Fail_For_Invalid_Reason(string reason)
     {
-        var request = new CreateReportRequest { Reason = "NotAReason" };
+        var request = new CreateReportRequest { Reason = reason };
         var isValid = TryValidate(request, out var results);
 
         isValid.Should().BeFalse();

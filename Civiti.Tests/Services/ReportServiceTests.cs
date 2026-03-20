@@ -295,4 +295,102 @@ public class ReportServiceTests : IDisposable
         success.Should().BeFalse();
         error.Should().Be(DomainErrors.CommentNotFound);
     }
+
+    [Fact]
+    public async Task ReportComment_Should_Return_Conflict_On_Duplicate()
+    {
+        var reporter = TestDataBuilder.CreateUser();
+        var commentAuthor = TestDataBuilder.CreateUser();
+        var issue = TestDataBuilder.CreateIssue(userId: commentAuthor.Id);
+        var comment = TestDataBuilder.CreateComment(issueId: issue.Id, userId: commentAuthor.Id);
+        var existingReport = TestDataBuilder.CreateReport(
+            reporterId: reporter.Id, targetType: "Comment", targetId: comment.Id);
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.AddRange(reporter, commentAuthor);
+            ctx.Issues.Add(issue);
+            ctx.Comments.Add(comment);
+            ctx.Reports.Add(existingReport);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var (success, _, error) = await svc.ReportCommentAsync(comment.Id, ValidRequest(), reporter.SupabaseUserId);
+
+        success.Should().BeFalse();
+        error.Should().Be(DomainErrors.AlreadyReported);
+    }
+
+    [Fact]
+    public async Task ReportComment_Should_Fail_For_Own_Content()
+    {
+        var user = TestDataBuilder.CreateUser();
+        var issue = TestDataBuilder.CreateIssue(userId: user.Id);
+        var comment = TestDataBuilder.CreateComment(issueId: issue.Id, userId: user.Id);
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            ctx.Issues.Add(issue);
+            ctx.Comments.Add(comment);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var (success, _, error) = await svc.ReportCommentAsync(comment.Id, ValidRequest(), user.SupabaseUserId);
+
+        success.Should().BeFalse();
+        error.Should().Be(DomainErrors.CannotReportOwnContent);
+    }
+
+    [Fact]
+    public async Task ReportComment_Should_Return_RateLimited_After_5_Reports()
+    {
+        var reporter = TestDataBuilder.CreateUser();
+        var author = TestDataBuilder.CreateUser();
+        var issue = TestDataBuilder.CreateIssue(userId: author.Id);
+        var comments = Enumerable.Range(0, 6)
+            .Select(_ => TestDataBuilder.CreateComment(issueId: issue.Id, userId: author.Id))
+            .ToList();
+
+        var existingReports = comments.Take(5)
+            .Select(c => TestDataBuilder.CreateReport(
+                reporterId: reporter.Id, targetType: "Comment", targetId: c.Id))
+            .ToList();
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.AddRange(reporter, author);
+            ctx.Issues.Add(issue);
+            ctx.Comments.AddRange(comments);
+            ctx.Reports.AddRange(existingReports);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var (success, _, error) = await svc.ReportCommentAsync(
+            comments[5].Id, ValidRequest(), reporter.SupabaseUserId);
+
+        success.Should().BeFalse();
+        error.Should().Be(DomainErrors.ReportRateLimited);
+    }
+
+    [Fact]
+    public async Task ReportComment_Should_Throw_For_Deleted_Account()
+    {
+        var user = TestDataBuilder.CreateUser();
+        user.IsDeleted = true;
+        user.DeletedAt = DateTime.UtcNow;
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        await svc.Invoking(s => s.ReportCommentAsync(Guid.NewGuid(), ValidRequest(), user.SupabaseUserId))
+            .Should().ThrowAsync<AccountDeletedException>();
+    }
 }
