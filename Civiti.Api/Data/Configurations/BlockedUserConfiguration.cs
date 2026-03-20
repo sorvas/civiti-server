@@ -14,6 +14,9 @@ public class BlockedUserConfiguration : IEntityTypeConfiguration<BlockedUser>
         builder.HasIndex(b => new { b.UserId, b.BlockedUserId })
             .IsUnique();
 
+        // Index for efficient cascade-delete and reverse-lookup (who has blocked me?)
+        builder.HasIndex(b => b.BlockedUserId);
+
         // Relationships
         builder.HasOne(b => b.User)
             .WithMany()

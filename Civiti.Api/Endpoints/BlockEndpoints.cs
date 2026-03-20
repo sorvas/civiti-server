@@ -136,7 +136,7 @@ public static class BlockEndpoints
         })
         .WithName("GetBlockedUsers")
         .WithSummary("Get blocked users list")
-        .WithDescription("Returns the list of users blocked by the authenticated user, with display name and photo.")
+        .WithDescription("Returns the list of users blocked by the authenticated user, with display name and photo. Results are capped at 500 items.")
         .Produces<List<BlockedUserResponse>>()
         .Produces(StatusCodes.Status401Unauthorized)
         .Produces(StatusCodes.Status403Forbidden);
