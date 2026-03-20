@@ -45,11 +45,13 @@ public static class ReportEndpoints
                     };
                 }
 
-                return Results.Created($"/api/issues/{id}/report", new ReportResponse
-                {
-                    Id = reportId!.Value,
-                    Message = "Report submitted successfully"
-                });
+                return Results.Created(
+                    $"{ApiRoutes.Issues.Base}/{id}/report",
+                    new ReportResponse
+                    {
+                        Id = reportId!.Value,
+                        Message = "Report submitted successfully"
+                    });
             }
             catch (AccountDeletedException)
             {
@@ -104,11 +106,13 @@ public static class ReportEndpoints
                     };
                 }
 
-                return Results.Created($"/api/comments/{id}/report", new ReportResponse
-                {
-                    Id = reportId!.Value,
-                    Message = "Report submitted successfully"
-                });
+                return Results.Created(
+                    $"{ApiRoutes.Comments.Base}/{id}/report",
+                    new ReportResponse
+                    {
+                        Id = reportId!.Value,
+                        Message = "Report submitted successfully"
+                    });
             }
             catch (AccountDeletedException)
             {

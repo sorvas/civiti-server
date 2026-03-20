@@ -88,7 +88,9 @@ public class ReportService(
                 context.Reports.Add(report);
                 await context.SaveChangesAsync();
 
-                // Atomic increment + auto-flag — prevents lost updates under concurrency
+                // Atomic increment + auto-flag — prevents lost updates under concurrency.
+                // Issues are flagged (not hidden) so admins can review them;
+                // admin action is required to actually reject a flagged issue.
                 await context.Issues
                     .Where(i => i.Id == issueId)
                     .ExecuteUpdateAsync(s => s

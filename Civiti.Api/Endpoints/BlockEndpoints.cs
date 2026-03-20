@@ -41,7 +41,7 @@ public static class BlockEndpoints
                     };
                 }
 
-                return Results.Created($"/api/user/blocked/{userId}", data);
+                return Results.Created($"{ApiRoutes.User.Base}{ApiRoutes.Blocked.Base}", data);
             }
             catch (AccountDeletedException)
             {
