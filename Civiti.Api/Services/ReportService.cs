@@ -40,59 +40,79 @@ public class ReportService(
             if (issue.UserId == user.Id)
                 return (false, null, DomainErrors.CannotReportOwnContent);
 
-            // Serializable transaction covers duplicate-check + rate-limit + insert only.
-            // User/entity lookups above are safe outside it (ownership is immutable).
-            await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            // Pre-generate ID for idempotency on retry
+            Guid reportId = Guid.NewGuid();
 
-            // Check for duplicate report (more specific error — check first)
-            var alreadyReported = await context.Reports
-                .AnyAsync(r => r.ReporterId == user.Id
-                    && r.TargetType == ReportTargetTypes.Issue
-                    && r.TargetId == issueId);
-
-            if (alreadyReported)
-                return (false, null, DomainErrors.AlreadyReported);
-
-            // DB-based rate limit: max reports in last hour
-            var recentReportCount = await context.Reports
-                .CountAsync(r => r.ReporterId == user.Id
-                    && r.CreatedAt > DateTime.UtcNow.AddHours(-1));
-
-            if (recentReportCount >= 5)
-                return (false, null, DomainErrors.ReportRateLimited);
-
-            Report report = new()
+            // Execution strategy wrapper required for retry-enabled DbContext
+            var strategy = context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
-                Id = Guid.NewGuid(),
-                ReporterId = user.Id,
-                TargetType = ReportTargetTypes.Issue,
-                TargetId = issueId,
-                Reason = request.ParsedReason,
-                Details = request.Details?.Trim(),
-                CreatedAt = DateTime.UtcNow
-            };
+                context.ChangeTracker.Clear();
 
-            context.Reports.Add(report);
-            await context.SaveChangesAsync();
+                // Idempotency: if report was created in a previous retry attempt, skip
+                if (await context.Reports.AnyAsync(r => r.Id == reportId))
+                    return;
 
-            // Atomic increment + auto-flag — prevents lost updates under concurrency
-            await context.Issues
-                .Where(i => i.Id == issueId)
-                .ExecuteUpdateAsync(s => s
-                    .SetProperty(i => i.ReportCount, i => i.ReportCount + 1)
-                    .SetProperty(i => i.IsFlagged, i => i.IsFlagged || (i.ReportCount + 1) >= AutoFlagThreshold));
+                // Serializable transaction covers duplicate-check + rate-limit + insert.
+                // User/entity lookups above are safe outside it (ownership is immutable).
+                await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
 
-            await tx.CommitAsync();
+                // Check for duplicate report (more specific error — check first)
+                var alreadyReported = await context.Reports
+                    .AnyAsync(r => r.ReporterId == user.Id
+                        && r.TargetType == ReportTargetTypes.Issue
+                        && r.TargetId == issueId);
+
+                if (alreadyReported)
+                    throw new InvalidOperationException(DomainErrors.AlreadyReported);
+
+                // DB-based rate limit: max reports in last hour
+                var recentReportCount = await context.Reports
+                    .CountAsync(r => r.ReporterId == user.Id
+                        && r.CreatedAt > DateTime.UtcNow.AddHours(-1));
+
+                if (recentReportCount >= 5)
+                    throw new InvalidOperationException(DomainErrors.ReportRateLimited);
+
+                Report report = new()
+                {
+                    Id = reportId,
+                    ReporterId = user.Id,
+                    TargetType = ReportTargetTypes.Issue,
+                    TargetId = issueId,
+                    Reason = request.ParsedReason,
+                    Details = request.Details?.Trim(),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                context.Reports.Add(report);
+                await context.SaveChangesAsync();
+
+                // Atomic increment + auto-flag — prevents lost updates under concurrency
+                await context.Issues
+                    .Where(i => i.Id == issueId)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(i => i.ReportCount, i => i.ReportCount + 1)
+                        .SetProperty(i => i.IsFlagged, i => i.IsFlagged || (i.ReportCount + 1) >= AutoFlagThreshold));
+
+                await tx.CommitAsync();
+            });
 
             logger.LogInformation(
                 "User {UserId} reported issue {IssueId} for {Reason}",
                 user.Id, issueId, request.Reason);
 
-            return (true, report.Id, null);
+            return (true, reportId, null);
         }
         catch (AccountDeletedException)
         {
             throw;
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message == DomainErrors.AlreadyReported ||
+            ex.Message == DomainErrors.ReportRateLimited)
+        {
+            return (false, null, ex.Message);
         }
         catch (DbUpdateException)
         {
@@ -131,59 +151,79 @@ public class ReportService(
             if (comment.UserId == user.Id)
                 return (false, null, DomainErrors.CannotReportOwnContent);
 
-            // Serializable transaction covers duplicate-check + rate-limit + insert only.
-            // User/entity lookups above are safe outside it (ownership is immutable).
-            await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            // Pre-generate ID for idempotency on retry
+            Guid reportId = Guid.NewGuid();
 
-            // Check for duplicate report (more specific error — check first)
-            var alreadyReported = await context.Reports
-                .AnyAsync(r => r.ReporterId == user.Id
-                    && r.TargetType == ReportTargetTypes.Comment
-                    && r.TargetId == commentId);
-
-            if (alreadyReported)
-                return (false, null, DomainErrors.AlreadyReported);
-
-            // DB-based rate limit: max reports in last hour
-            var recentReportCount = await context.Reports
-                .CountAsync(r => r.ReporterId == user.Id
-                    && r.CreatedAt > DateTime.UtcNow.AddHours(-1));
-
-            if (recentReportCount >= 5)
-                return (false, null, DomainErrors.ReportRateLimited);
-
-            Report report = new()
+            // Execution strategy wrapper required for retry-enabled DbContext
+            var strategy = context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
-                Id = Guid.NewGuid(),
-                ReporterId = user.Id,
-                TargetType = ReportTargetTypes.Comment,
-                TargetId = commentId,
-                Reason = request.ParsedReason,
-                Details = request.Details?.Trim(),
-                CreatedAt = DateTime.UtcNow
-            };
+                context.ChangeTracker.Clear();
 
-            context.Reports.Add(report);
-            await context.SaveChangesAsync();
+                // Idempotency: if report was created in a previous retry attempt, skip
+                if (await context.Reports.AnyAsync(r => r.Id == reportId))
+                    return;
 
-            // Atomic increment + auto-hide — prevents lost updates under concurrency
-            await context.Comments
-                .Where(c => c.Id == commentId)
-                .ExecuteUpdateAsync(s => s
-                    .SetProperty(c => c.ReportCount, c => c.ReportCount + 1)
-                    .SetProperty(c => c.IsHidden, c => c.IsHidden || (c.ReportCount + 1) >= AutoFlagThreshold));
+                // Serializable transaction covers duplicate-check + rate-limit + insert.
+                // User/entity lookups above are safe outside it (ownership is immutable).
+                await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
 
-            await tx.CommitAsync();
+                // Check for duplicate report (more specific error — check first)
+                var alreadyReported = await context.Reports
+                    .AnyAsync(r => r.ReporterId == user.Id
+                        && r.TargetType == ReportTargetTypes.Comment
+                        && r.TargetId == commentId);
+
+                if (alreadyReported)
+                    throw new InvalidOperationException(DomainErrors.AlreadyReported);
+
+                // DB-based rate limit: max reports in last hour
+                var recentReportCount = await context.Reports
+                    .CountAsync(r => r.ReporterId == user.Id
+                        && r.CreatedAt > DateTime.UtcNow.AddHours(-1));
+
+                if (recentReportCount >= 5)
+                    throw new InvalidOperationException(DomainErrors.ReportRateLimited);
+
+                Report report = new()
+                {
+                    Id = reportId,
+                    ReporterId = user.Id,
+                    TargetType = ReportTargetTypes.Comment,
+                    TargetId = commentId,
+                    Reason = request.ParsedReason,
+                    Details = request.Details?.Trim(),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                context.Reports.Add(report);
+                await context.SaveChangesAsync();
+
+                // Atomic increment + auto-hide — prevents lost updates under concurrency
+                await context.Comments
+                    .Where(c => c.Id == commentId)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(c => c.ReportCount, c => c.ReportCount + 1)
+                        .SetProperty(c => c.IsHidden, c => c.IsHidden || (c.ReportCount + 1) >= AutoFlagThreshold));
+
+                await tx.CommitAsync();
+            });
 
             logger.LogInformation(
                 "User {UserId} reported comment {CommentId} for {Reason}",
                 user.Id, commentId, request.Reason);
 
-            return (true, report.Id, null);
+            return (true, reportId, null);
         }
         catch (AccountDeletedException)
         {
             throw;
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message == DomainErrors.AlreadyReported ||
+            ex.Message == DomainErrors.ReportRateLimited)
+        {
+            return (false, null, ex.Message);
         }
         catch (DbUpdateException)
         {

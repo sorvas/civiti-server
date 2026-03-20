@@ -13,7 +13,15 @@ public class CreateReportRequest : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (!string.IsNullOrWhiteSpace(Reason) && !Enum.TryParse<ReportReason>(Reason, ignoreCase: true, out _))
+        if (string.IsNullOrWhiteSpace(Reason))
+        {
+            yield return new ValidationResult(
+                "Field 'reason' is required.",
+                [nameof(Reason)]);
+            yield break;
+        }
+
+        if (!Enum.TryParse<ReportReason>(Reason, ignoreCase: true, out _))
         {
             yield return new ValidationResult(
                 $"Field 'reason' must be one of: {string.Join(", ", Enum.GetNames<ReportReason>())}.",
