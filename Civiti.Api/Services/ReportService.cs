@@ -39,15 +39,7 @@ public class ReportService(
             if (issue.UserId == user.Id)
                 return (false, null, DomainErrors.CannotReportOwnContent);
 
-            // DB-based rate limit: max reports in last hour
-            var recentReportCount = await context.Reports
-                .CountAsync(r => r.ReporterId == user.Id
-                    && r.CreatedAt > DateTime.UtcNow.AddHours(-1));
-
-            if (recentReportCount >= 5)
-                return (false, null, DomainErrors.ReportRateLimited);
-
-            // Check for duplicate report
+            // Check for duplicate report (more specific error — check first)
             var alreadyReported = await context.Reports
                 .AnyAsync(r => r.ReporterId == user.Id
                     && r.TargetType == "Issue"
@@ -55,6 +47,14 @@ public class ReportService(
 
             if (alreadyReported)
                 return (false, null, DomainErrors.AlreadyReported);
+
+            // DB-based rate limit: max reports in last hour
+            var recentReportCount = await context.Reports
+                .CountAsync(r => r.ReporterId == user.Id
+                    && r.CreatedAt > DateTime.UtcNow.AddHours(-1));
+
+            if (recentReportCount >= 5)
+                return (false, null, DomainErrors.ReportRateLimited);
 
             Report report = new()
             {
@@ -68,16 +68,14 @@ public class ReportService(
             };
 
             context.Reports.Add(report);
-
-            // Increment report count and auto-flag if threshold reached
-            issue.ReportCount++;
-            if (issue.ReportCount >= AutoFlagThreshold && !issue.IsFlagged)
-            {
-                issue.IsFlagged = true;
-                logger.LogWarning("Issue {IssueId} auto-flagged after {Count} reports", issueId, issue.ReportCount);
-            }
-
             await context.SaveChangesAsync();
+
+            // Atomic increment + auto-flag — prevents lost updates under concurrency
+            await context.Issues
+                .Where(i => i.Id == issueId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(i => i.ReportCount, i => i.ReportCount + 1)
+                    .SetProperty(i => i.IsFlagged, i => i.IsFlagged || (i.ReportCount + 1) >= AutoFlagThreshold));
 
             logger.LogInformation(
                 "User {UserId} reported issue {IssueId} for {Reason}",
@@ -121,15 +119,7 @@ public class ReportService(
             if (comment.UserId == user.Id)
                 return (false, null, DomainErrors.CannotReportOwnContent);
 
-            // DB-based rate limit: max reports in last hour
-            var recentReportCount = await context.Reports
-                .CountAsync(r => r.ReporterId == user.Id
-                    && r.CreatedAt > DateTime.UtcNow.AddHours(-1));
-
-            if (recentReportCount >= 5)
-                return (false, null, DomainErrors.ReportRateLimited);
-
-            // Check for duplicate report
+            // Check for duplicate report (more specific error — check first)
             var alreadyReported = await context.Reports
                 .AnyAsync(r => r.ReporterId == user.Id
                     && r.TargetType == "Comment"
@@ -137,6 +127,14 @@ public class ReportService(
 
             if (alreadyReported)
                 return (false, null, DomainErrors.AlreadyReported);
+
+            // DB-based rate limit: max reports in last hour
+            var recentReportCount = await context.Reports
+                .CountAsync(r => r.ReporterId == user.Id
+                    && r.CreatedAt > DateTime.UtcNow.AddHours(-1));
+
+            if (recentReportCount >= 5)
+                return (false, null, DomainErrors.ReportRateLimited);
 
             Report report = new()
             {
@@ -150,16 +148,14 @@ public class ReportService(
             };
 
             context.Reports.Add(report);
-
-            // Increment report count and auto-hide if threshold reached
-            comment.ReportCount++;
-            if (comment.ReportCount >= AutoFlagThreshold && !comment.IsHidden)
-            {
-                comment.IsHidden = true;
-                logger.LogWarning("Comment {CommentId} auto-hidden after {Count} reports", commentId, comment.ReportCount);
-            }
-
             await context.SaveChangesAsync();
+
+            // Atomic increment + auto-hide — prevents lost updates under concurrency
+            await context.Comments
+                .Where(c => c.Id == commentId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.ReportCount, c => c.ReportCount + 1)
+                    .SetProperty(c => c.IsHidden, c => c.IsHidden || (c.ReportCount + 1) >= AutoFlagThreshold));
 
             logger.LogInformation(
                 "User {UserId} reported comment {CommentId} for {Reason}",

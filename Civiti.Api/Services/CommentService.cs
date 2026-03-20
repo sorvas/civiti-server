@@ -871,7 +871,7 @@ public class CommentService(
         {
             Id = comment.Id,
             IssueId = comment.IssueId,
-            Content = comment.Content,
+            Content = comment.IsHidden ? string.Empty : comment.Content,
             HelpfulCount = comment.HelpfulCount,
             IsEdited = comment.IsEdited,
             IsDeleted = comment.IsDeleted,
