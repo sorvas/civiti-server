@@ -114,6 +114,15 @@ The `AnyAsync` check applies the global query filter (`!u.IsDeleted`), so delete
 
 ---
 
+### 7. No rate limiting on block/unblock operations
+
+**File:** `Civiti.Api/Services/BlockService.cs`
+**Impact:** A client could rapidly alternate block/unblock in a tight loop, generating continuous INSERTs and DELETEs with no throttle.
+
+Unlike report endpoints (capped at 5/hour), block/unblock has no rate limit. Consider applying a DB-based cap (e.g., 50 blocks per hour) or using `RequireRateLimiting` on the route group.
+
+---
+
 ## Suggested Implementation Order
 
 1. **Block-list enforcement** (#1) — Required for the feature to be user-visible
@@ -121,3 +130,4 @@ The `AnyAsync` check applies the global query filter (`!u.IsDeleted`), so delete
 3. **Hidden content for author** (#3) — Product decision, then straightforward implementation
 4. **CHECK constraint + rate-limit index** (#4, #5) — Bundle into a single migration PR
 5. **Deleted users blocking** (#6) — Product decision, minimal code change
+6. **Block rate limiting** (#7) — Low priority, add when abuse patterns emerge
