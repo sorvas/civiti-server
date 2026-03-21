@@ -677,9 +677,16 @@ public class UserService(
                     context.Reports.RemoveRange(userReports);
                     await context.SaveChangesAsync(cancellationToken);
 
+                    // Batch count remaining reports per target (1 query per type instead of N)
+                    var issueCounts = await context.Reports
+                        .Where(r => r.TargetType == ReportTargetTypes.Issue && issueTargetIds.Contains(r.TargetId))
+                        .GroupBy(r => r.TargetId)
+                        .Select(g => new { TargetId = g.Key, Count = g.Count() })
+                        .ToDictionaryAsync(x => x.TargetId, x => x.Count, cancellationToken);
+
                     foreach (var issueId in issueTargetIds)
                     {
-                        var count = await context.Reports.CountAsync(r => r.TargetType == ReportTargetTypes.Issue && r.TargetId == issueId, cancellationToken);
+                        var count = issueCounts.GetValueOrDefault(issueId, 0);
                         await context.Issues.Where(i => i.Id == issueId)
                             .ExecuteUpdateAsync(s => s
                                 .SetProperty(i => i.ReportCount, count)
@@ -687,9 +694,15 @@ public class UserService(
                                 .SetProperty(i => i.UpdatedAt, _ => DateTime.UtcNow), cancellationToken);
                     }
 
+                    var commentCounts = await context.Reports
+                        .Where(r => r.TargetType == ReportTargetTypes.Comment && commentTargetIds.Contains(r.TargetId))
+                        .GroupBy(r => r.TargetId)
+                        .Select(g => new { TargetId = g.Key, Count = g.Count() })
+                        .ToDictionaryAsync(x => x.TargetId, x => x.Count, cancellationToken);
+
                     foreach (var commentId in commentTargetIds)
                     {
-                        var count = await context.Reports.CountAsync(r => r.TargetType == ReportTargetTypes.Comment && r.TargetId == commentId, cancellationToken);
+                        var count = commentCounts.GetValueOrDefault(commentId, 0);
                         await context.Comments.Where(c => c.Id == commentId)
                             .ExecuteUpdateAsync(s => s
                                 .SetProperty(c => c.ReportCount, count)

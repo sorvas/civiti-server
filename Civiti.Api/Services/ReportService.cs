@@ -57,8 +57,18 @@ public class ReportService(
                 if (await context.Reports.AnyAsync(r => r.Id == reportId))
                     return;
 
+                // Re-check issue status inside strategy in case it changed during a retry
+                var currentStatus = await context.Issues
+                    .Where(i => i.Id == issueId)
+                    .Select(i => (IssueStatus?)i.Status)
+                    .FirstOrDefaultAsync();
+
+                if (currentStatus == null)
+                { businessError = DomainErrors.IssueNotFound; return; }
+                if (currentStatus != IssueStatus.Active)
+                { businessError = DomainErrors.IssueNotReportable; return; }
+
                 // Serializable transaction covers duplicate-check + rate-limit + insert.
-                // User/entity lookups above are safe outside it (ownership is immutable).
                 await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
 
                 // Check for duplicate report (more specific error — check first)
@@ -180,8 +190,18 @@ public class ReportService(
                 if (await context.Reports.AnyAsync(r => r.Id == reportId))
                     return;
 
+                // Re-check parent issue status inside strategy in case it changed during a retry
+                var parentIssueActive = await context.Comments
+                    .Where(c => c.Id == commentId && !c.IsDeleted)
+                    .Select(c => (IssueStatus?)c.Issue.Status)
+                    .FirstOrDefaultAsync();
+
+                if (parentIssueActive == null)
+                { businessError = DomainErrors.CommentNotFound; return; }
+                if (parentIssueActive != IssueStatus.Active)
+                { businessError = DomainErrors.CommentNotReportable; return; }
+
                 // Serializable transaction covers duplicate-check + rate-limit + insert.
-                // User/entity lookups above are safe outside it (ownership is immutable).
                 await using var tx = await context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
 
                 // Check for duplicate report (more specific error — check first)
