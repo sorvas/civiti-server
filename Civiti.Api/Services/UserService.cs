@@ -671,28 +671,30 @@ public class UserService(
                 if (userReports.Count > 0)
                 {
                     // Recalculate ReportCount and flags for affected issues/comments
-                    var issueTargetIds = userReports.Where(r => r.TargetType == "Issue").Select(r => r.TargetId).Distinct().ToList();
-                    var commentTargetIds = userReports.Where(r => r.TargetType == "Comment").Select(r => r.TargetId).Distinct().ToList();
+                    var issueTargetIds = userReports.Where(r => r.TargetType == ReportTargetTypes.Issue).Select(r => r.TargetId).Distinct().ToList();
+                    var commentTargetIds = userReports.Where(r => r.TargetType == ReportTargetTypes.Comment).Select(r => r.TargetId).Distinct().ToList();
 
                     context.Reports.RemoveRange(userReports);
                     await context.SaveChangesAsync(cancellationToken);
 
                     foreach (var issueId in issueTargetIds)
                     {
-                        var count = await context.Reports.CountAsync(r => r.TargetType == "Issue" && r.TargetId == issueId, cancellationToken);
+                        var count = await context.Reports.CountAsync(r => r.TargetType == ReportTargetTypes.Issue && r.TargetId == issueId, cancellationToken);
                         await context.Issues.Where(i => i.Id == issueId)
                             .ExecuteUpdateAsync(s => s
                                 .SetProperty(i => i.ReportCount, count)
-                                .SetProperty(i => i.IsFlagged, count >= 3), cancellationToken);
+                                .SetProperty(i => i.IsFlagged, count >= ReportService.AutoFlagThreshold)
+                                .SetProperty(i => i.UpdatedAt, _ => DateTime.UtcNow), cancellationToken);
                     }
 
                     foreach (var commentId in commentTargetIds)
                     {
-                        var count = await context.Reports.CountAsync(r => r.TargetType == "Comment" && r.TargetId == commentId, cancellationToken);
+                        var count = await context.Reports.CountAsync(r => r.TargetType == ReportTargetTypes.Comment && r.TargetId == commentId, cancellationToken);
                         await context.Comments.Where(c => c.Id == commentId)
                             .ExecuteUpdateAsync(s => s
                                 .SetProperty(c => c.ReportCount, count)
-                                .SetProperty(c => c.IsHidden, count >= 3), cancellationToken);
+                                .SetProperty(c => c.IsHidden, count >= ReportService.AutoFlagThreshold)
+                                .SetProperty(c => c.UpdatedAt, _ => DateTime.UtcNow), cancellationToken);
                     }
                 }
 

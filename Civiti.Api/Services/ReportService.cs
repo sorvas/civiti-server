@@ -13,7 +13,7 @@ public class ReportService(
     ILogger<ReportService> logger,
     CivitiDbContext context) : IReportService
 {
-    private const int AutoFlagThreshold = 3;
+    internal const int AutoFlagThreshold = 3;
 
     public async Task<(bool Success, Guid? ReportId, string? Error)> ReportIssueAsync(
         Guid issueId,
