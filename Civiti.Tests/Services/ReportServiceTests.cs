@@ -229,6 +229,37 @@ public class ReportServiceTests : IDisposable
         error.Should().Be(DomainErrors.ReportRateLimited);
     }
 
+    [Fact]
+    public async Task ReportIssue_Should_Not_Be_RateLimited_For_Old_Reports()
+    {
+        var reporter = TestDataBuilder.CreateUser();
+        var authors = Enumerable.Range(0, 6).Select(_ => TestDataBuilder.CreateUser()).ToList();
+        var issues = authors.Select(a => TestDataBuilder.CreateIssue(userId: a.Id)).ToList();
+
+        // 5 reports older than 1 hour should NOT count toward the rate limit
+        var existingReports = issues.Take(5).Select(i =>
+            TestDataBuilder.CreateReport(
+                reporterId: reporter.Id,
+                targetType: ReportTargetTypes.Issue,
+                targetId: i.Id,
+                createdAt: DateTime.UtcNow.AddHours(-2))).ToList();
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.AddRange(new[] { reporter }.Concat(authors));
+            ctx.Issues.AddRange(issues);
+            ctx.Reports.AddRange(existingReports);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var (success, reportId, error) = await svc.ReportIssueAsync(issues[5].Id, ValidRequest(), reporter.SupabaseUserId);
+
+        success.Should().BeTrue();
+        reportId.Should().NotBeNull();
+        error.Should().BeNull();
+    }
+
     // ── ReportCommentAsync ──
 
     [Fact]

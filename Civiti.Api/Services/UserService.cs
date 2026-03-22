@@ -674,8 +674,9 @@ public class UserService(
                     var issueTargetIds = userReports.Where(r => r.TargetType == ReportTargetTypes.Issue).Select(r => r.TargetId).Distinct().ToList();
                     var commentTargetIds = userReports.Where(r => r.TargetType == ReportTargetTypes.Comment).Select(r => r.TargetId).Distinct().ToList();
 
-                    context.Reports.RemoveRange(userReports);
-                    await context.SaveChangesAsync(cancellationToken);
+                    await context.Reports
+                        .Where(r => r.ReporterId == user.Id)
+                        .ExecuteDeleteAsync(cancellationToken);
 
                     // Batch count remaining reports per target (1 query per type instead of N)
                     var issueCounts = await context.Reports
