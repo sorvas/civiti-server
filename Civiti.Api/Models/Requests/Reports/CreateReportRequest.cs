@@ -21,7 +21,9 @@ public class CreateReportRequest : IValidatableObject
             yield break;
         }
 
-        if (!Enum.TryParse<ReportReason>(Reason, ignoreCase: true, out var parsed) || !Enum.IsDefined(parsed))
+        // Reject numeric strings (e.g. "0", "-1") — only named values are accepted
+        if (char.IsDigit(Reason[0]) || Reason[0] == '-' ||
+            !Enum.TryParse<ReportReason>(Reason, ignoreCase: true, out var parsed) || !Enum.IsDefined(parsed))
         {
             yield return new ValidationResult(
                 $"Field 'reason' must be one of: {string.Join(", ", Enum.GetNames<ReportReason>())}.",
