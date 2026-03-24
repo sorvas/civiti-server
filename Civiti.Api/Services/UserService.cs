@@ -632,8 +632,9 @@ public class UserService(
                     return;
                 }
 
-                // Explicit transaction ensures all PII scrub fields are committed atomically.
-                // Without this, a failure mid-SaveChangesAsync could leave partial PII intact.
+                // Explicit transaction ensures report cleanup, PII scrub, and soft-delete are
+                // committed atomically. ExecuteDeleteAsync/ExecuteUpdateAsync participate in this
+                // transaction, so a crash mid-deletion rolls back all three cleanup steps.
                 await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
                 // 1. Anonymize PII and soft-delete locally FIRST so the DB is always consistent.
