@@ -686,13 +686,14 @@ public class UserService(
 
                     // Relative decrement — race-free with concurrent ReportService increments.
                     // Each user has exactly 1 report per target (unique index), so decrement by 1.
+                    // IsFlagged/IsHidden intentionally NOT cleared — once content is moderated,
+                    // only admin action should un-flag/un-hide to prevent re-exposing reported content.
                     if (issueTargetIds.Count > 0)
                     {
                         await context.Issues
                             .Where(i => issueTargetIds.Contains(i.Id))
                             .ExecuteUpdateAsync(s => s
                                 .SetProperty(i => i.ReportCount, i => i.ReportCount > 0 ? i.ReportCount - 1 : 0)
-                                .SetProperty(i => i.IsFlagged, i => (i.ReportCount > 0 ? i.ReportCount - 1 : 0) >= ReportService.AutoFlagThreshold)
                                 .SetProperty(i => i.UpdatedAt, _ => DateTime.UtcNow), cancellationToken);
                     }
 
@@ -702,7 +703,6 @@ public class UserService(
                             .Where(c => commentTargetIds.Contains(c.Id))
                             .ExecuteUpdateAsync(s => s
                                 .SetProperty(c => c.ReportCount, c => c.ReportCount > 0 ? c.ReportCount - 1 : 0)
-                                .SetProperty(c => c.IsHidden, c => (c.ReportCount > 0 ? c.ReportCount - 1 : 0) >= ReportService.AutoFlagThreshold)
                                 .SetProperty(c => c.UpdatedAt, _ => DateTime.UtcNow), cancellationToken);
                     }
                 }
