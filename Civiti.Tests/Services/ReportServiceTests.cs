@@ -454,6 +454,43 @@ public class ReportServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ReportComment_Should_Not_Be_RateLimited_For_Old_Reports()
+    {
+        var reporter = TestDataBuilder.CreateUser();
+        var author = TestDataBuilder.CreateUser();
+        var issue = TestDataBuilder.CreateIssue(userId: author.Id);
+        var comments = Enumerable.Range(0, 6)
+            .Select(_ => TestDataBuilder.CreateComment(issueId: issue.Id, userId: author.Id))
+            .ToList();
+
+        // 5 reports older than 1 hour should NOT count toward the rate limit
+        var existingReports = comments.Take(5)
+            .Select(c => TestDataBuilder.CreateReport(
+                reporterId: reporter.Id,
+                targetType: ReportTargetTypes.Comment,
+                targetId: c.Id,
+                createdAt: DateTime.UtcNow.AddHours(-2)))
+            .ToList();
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.AddRange(reporter, author);
+            ctx.Issues.Add(issue);
+            ctx.Comments.AddRange(comments);
+            ctx.Reports.AddRange(existingReports);
+            await ctx.SaveChangesAsync();
+        }
+
+        var svc = CreateService();
+        var (success, reportId, error) = await svc.ReportCommentAsync(
+            comments[5].Id, ValidRequest(), reporter.SupabaseUserId);
+
+        success.Should().BeTrue();
+        reportId.Should().NotBeNull();
+        error.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ReportComment_Should_Throw_For_Deleted_Account()
     {
         var user = TestDataBuilder.CreateUser();

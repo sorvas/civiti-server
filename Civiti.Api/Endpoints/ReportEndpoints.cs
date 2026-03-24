@@ -50,7 +50,7 @@ public static class ReportEndpoints
                 }
 
                 return Results.Created(
-                    $"{ApiRoutes.Issues.Base}/{id}/report",
+                    $"{ApiRoutes.Issues.Base}{ApiRoutes.Reports.Report.Replace("{id:guid}", id.ToString())}",
                     new ReportResponse
                     {
                         Id = reportId!.Value,
@@ -115,7 +115,7 @@ public static class ReportEndpoints
                 }
 
                 return Results.Created(
-                    $"{ApiRoutes.Comments.Base}/{id}/report",
+                    $"{ApiRoutes.Comments.Base}{ApiRoutes.Reports.Report.Replace("{id:guid}", id.ToString())}",
                     new ReportResponse
                     {
                         Id = reportId!.Value,
