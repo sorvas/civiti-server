@@ -691,8 +691,8 @@ public class UserService(
                         await context.Issues
                             .Where(i => issueTargetIds.Contains(i.Id))
                             .ExecuteUpdateAsync(s => s
-                                .SetProperty(i => i.ReportCount, i => i.ReportCount - 1)
-                                .SetProperty(i => i.IsFlagged, i => (i.ReportCount - 1) >= ReportService.AutoFlagThreshold)
+                                .SetProperty(i => i.ReportCount, i => i.ReportCount > 0 ? i.ReportCount - 1 : 0)
+                                .SetProperty(i => i.IsFlagged, i => (i.ReportCount > 0 ? i.ReportCount - 1 : 0) >= ReportService.AutoFlagThreshold)
                                 .SetProperty(i => i.UpdatedAt, _ => DateTime.UtcNow), cancellationToken);
                     }
 
@@ -701,8 +701,8 @@ public class UserService(
                         await context.Comments
                             .Where(c => commentTargetIds.Contains(c.Id))
                             .ExecuteUpdateAsync(s => s
-                                .SetProperty(c => c.ReportCount, c => c.ReportCount - 1)
-                                .SetProperty(c => c.IsHidden, c => (c.ReportCount - 1) >= ReportService.AutoFlagThreshold)
+                                .SetProperty(c => c.ReportCount, c => c.ReportCount > 0 ? c.ReportCount - 1 : 0)
+                                .SetProperty(c => c.IsHidden, c => (c.ReportCount > 0 ? c.ReportCount - 1 : 0) >= ReportService.AutoFlagThreshold)
                                 .SetProperty(c => c.UpdatedAt, _ => DateTime.UtcNow), cancellationToken);
                     }
                 }
