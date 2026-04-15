@@ -138,9 +138,10 @@ public sealed class AdminNotifyBackgroundService(
                 continue;
             }
 
-            // Step 1: try to enqueue the email *first*. If the channel is full (DropWrite),
+            // Step 1: try to enqueue the email *first*. If the channel is full,
             // DO NOT persist the audit row — otherwise a future retry would see the audit
             // and skip this admin permanently, silently losing the notification.
+            // (The email channel uses FullMode.Wait so TryWrite returns false on overflow.)
             EmailNotification message = new(normalizedEmail, subject, htmlBody, EmailNotificationType.AdminNewIssue);
             if (!emailWriter.TryWrite(message))
             {

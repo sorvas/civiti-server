@@ -414,7 +414,8 @@ AdminNotifyConfiguration adminNotifyConfig = new()
     AdminListCacheSeconds = GetEnvOrConfigInt("ADMIN_NOTIFY_CACHE_SECONDS", "AdminNotify:AdminListCacheSeconds", 60),
     MaxSupabaseRetries = GetEnvOrConfigInt("ADMIN_NOTIFY_MAX_RETRIES", "AdminNotify:MaxSupabaseRetries", 3),
     SupabaseTimeoutSeconds = GetEnvOrConfigInt("ADMIN_NOTIFY_SUPABASE_TIMEOUT_SECONDS", "AdminNotify:SupabaseTimeoutSeconds", 10),
-    SupabasePageSize = GetEnvOrConfigInt("ADMIN_NOTIFY_SUPABASE_PAGE_SIZE", "AdminNotify:SupabasePageSize", 200)
+    SupabasePageSize = GetEnvOrConfigInt("ADMIN_NOTIFY_SUPABASE_PAGE_SIZE", "AdminNotify:SupabasePageSize", 200),
+    MaxSupabasePages = GetEnvOrConfigInt("ADMIN_NOTIFY_MAX_PAGES", "AdminNotify:MaxSupabasePages", 50)
 };
 if (adminNotifyConfig.ChannelCapacity <= 0)
     throw new InvalidOperationException($"AdminNotify:ChannelCapacity must be positive (got {adminNotifyConfig.ChannelCapacity}).");

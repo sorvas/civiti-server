@@ -18,8 +18,10 @@ public class AdminNotifyConfiguration
     public int AdminListCacheSeconds { get; set; } = 60;
 
     /// <summary>
-    /// Bounded channel capacity for admin-notify requests. Drop-write under pressure
-    /// (we'd rather skip a notification than block issue creation).
+    /// Bounded channel capacity for admin-notify requests. The channel uses
+    /// <c>FullMode.Wait</c> so producers can observe overflow via a <c>false</c>
+    /// TryWrite return; overflow is logged and the notification is dropped rather
+    /// than blocking issue creation.
     /// </summary>
     public int ChannelCapacity { get; set; } = 1_000;
 
