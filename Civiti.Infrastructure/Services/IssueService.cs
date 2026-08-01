@@ -689,8 +689,31 @@ public class IssueService(
 
                 // Update the status
                 IssueStatus previousStatus = issue.Status;
+                DateTime changedAt = DateTime.UtcNow;
+
+                // Claim the transition atomically, the same way approve and request-changes do.
+                // The validation above ran against a read taken without a row lock, so two
+                // requests for the same issue — a double-clicked "Rezolvă" is enough, the client
+                // fires concurrent PUTs — could both pass it off the same stale read and both run
+                // the non-idempotent gamification below, banking the once-per-issue reward twice
+                // and counting the resolution twice. The loser now blocks on the row lock,
+                // re-evaluates against the committed status, matches no rows and is turned away.
+                int claimed = await context.Issues
+                    .Where(i => i.Id == issueId && i.Status == previousStatus)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(i => i.Status, request.Status)
+                        .SetProperty(i => i.UpdatedAt, changedAt));
+
+                if (claimed == 0)
+                {
+                    await transaction.RollbackAsync();
+                    return (false, "Issue changed while the request was being prepared; reload it and try again");
+                }
+
+                // Keep the tracked entity in step with the claim above — it still feeds the
+                // reward stamp below and the resolution notification further down.
                 issue.Status = request.Status;
-                issue.UpdatedAt = DateTime.UtcNow;
+                issue.UpdatedAt = changedAt;
 
                 bool isResolving = request.Status == IssueStatus.Resolved && previousStatus != IssueStatus.Resolved;
                 bool isReopening = request.Status == IssueStatus.Active && previousStatus == IssueStatus.Resolved;
@@ -701,6 +724,11 @@ public class IssueService(
                 // therefore awarded only the first time an issue is ever resolved. Without this,
                 // resolve/re-open/resolve is a points farm — and badges cannot be un-awarded, so
                 // reversing the reward on re-open is not an option.
+                //
+                // Reading ResolutionRewardedAt off the pre-lock snapshot is safe now that the
+                // claim above succeeded: it is only ever written by this method, and only after
+                // winning a claim, which always moves the status. Nothing can have stamped it
+                // between the read and the claim without also failing our claim.
                 bool shouldRewardResolution = isResolving && issue.ResolutionRewardedAt == null;
 
                 if (isResolving || isReopening)
