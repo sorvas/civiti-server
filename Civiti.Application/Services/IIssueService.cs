@@ -22,7 +22,8 @@ public interface IIssueService
 
     /// <summary>
     /// Update an issue's status (user can only change status of their own issues, unless admin).
-    /// Allowed user transitions: Cancelled, Resolved
+    /// Allowed user transitions: anything non-terminal to Cancelled, Active to Resolved, and
+    /// Resolved back to Active (re-opening). Cancelled is terminal.
     /// </summary>
     Task<(bool Success, string? Error)> UpdateIssueStatusAsync(Guid issueId, UpdateIssueStatusRequest request, string supabaseUserId, bool isAdmin = false);
 

@@ -463,7 +463,7 @@ public static class UserEndpoints
         })
         .WithName("UpdateUserIssueStatus")
         .WithSummary("Update issue status")
-        .WithDescription("Allows the authenticated user to change their issue's status. Users can set status to: Cancelled, Resolved. Cannot change status of already cancelled or resolved issues.")
+        .WithDescription("Allows the authenticated user to change their issue's status. Users can set status to: Cancelled (from any non-terminal status), Resolved (only from Active), and Active (only from Resolved — re-opening an issue they had resolved). Cancelled is terminal and cannot be changed.")
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status401Unauthorized)

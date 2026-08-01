@@ -35,6 +35,36 @@ viewable.
 
 ---
 
+## 1a. New: the author can re-open a resolved issue
+
+`PUT /api/user/issues/{id}/status` now also accepts `"status": "active"`, valid **only** when the
+issue is currently `Resolved`. It returns `204` and the issue goes straight back to `Active` with
+no admin re-review. Anything else is a `400`:
+
+```jsonc
+// 400 — from Submitted / UnderReview / Rejected / Draft
+{ "error": "Only a resolved issue can be re-opened" }
+
+// 400 — Cancelled is still absorbing
+{ "error": "Cannot change status of a cancelled issue" }
+```
+
+**Action:** gate any "re-open" affordance on `status === "resolved"`. Do not offer it on a
+cancelled issue.
+
+**Why this is safe, when re-opening a cancelled issue would not be:** `Resolved` is reachable only
+from `Active` (§1), and a resolved issue is not owner-editable, so its content was approved by an
+admin and cannot have changed since. Re-opening restores a state the issue already legitimately
+held. `Cancelled` is reachable from `Submitted`, `UnderReview` and `Rejected`, so the same exit
+there would publish content that was never reviewed.
+
+**Gamification:** resolving awards the author 100 points, `issues_resolved` achievement progress
+and any badges that unlocks — but now only the **first** time a given issue is resolved, so
+re-open/re-resolve cycles cannot farm it. The `IssuesResolved` counter is the exception and moves
+both ways, since it describes the issue's current state.
+
+---
+
 ## 2. Breaking: the edit request is stricter than the spec
 
 ### Every editable field is required on every call

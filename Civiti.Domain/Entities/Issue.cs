@@ -26,6 +26,12 @@ public class Issue
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    // When the author's resolution reward (points, achievement progress, badges) was granted.
+    // An author may resolve and re-open the same issue repeatedly; this makes that reward
+    // once-per-issue rather than once-per-resolution, so the cycle cannot be farmed. Null for
+    // issues resolved before this was introduced, which simply means the next resolve pays out.
+    public DateTime? ResolutionRewardedAt { get; set; }
+
     // Cached AI-composed petition argument core (see IPetitionBodyCacheStore). Nullable until
     // first generated. ContentHash is a fingerprint of the prompt-affecting issue fields, so an
     // edit that changes them invalidates the cache automatically; GeneratedAt drives the TTL.

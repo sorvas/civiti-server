@@ -692,8 +692,18 @@ public class IssueService(
                 issue.Status = request.Status;
                 issue.UpdatedAt = DateTime.UtcNow;
 
-                // If status changed to Resolved, update gamification for the issue OWNER (not the caller)
-                if (request.Status == IssueStatus.Resolved && previousStatus != IssueStatus.Resolved)
+                bool isResolving = request.Status == IssueStatus.Resolved && previousStatus != IssueStatus.Resolved;
+                bool isReopening = request.Status == IssueStatus.Active && previousStatus == IssueStatus.Resolved;
+
+                // An author can now resolve and re-open the same issue repeatedly, so the reward
+                // has to be split from the count. IssuesResolved tracks the issue's current state
+                // and moves both ways; points, achievement progress and badges are one-way and are
+                // therefore awarded only the first time an issue is ever resolved. Without this,
+                // resolve/re-open/resolve is a points farm — and badges cannot be un-awarded, so
+                // reversing the reward on re-open is not an option.
+                bool shouldRewardResolution = isResolving && issue.ResolutionRewardedAt == null;
+
+                if (isResolving || isReopening)
                 {
                     // Get the issue owner's profile to update their stats
                     UserProfile? issueOwner = issue.UserId == userProfile.Id
@@ -705,15 +715,32 @@ public class IssueService(
                     // profile is anonymised and no longer participates in gamification.
                     if (issueOwner != null)
                     {
-                        issueOwner.IssuesResolved++;
+                        if (isResolving)
+                        {
+                            issueOwner.IssuesResolved++;
+                        }
+                        else
+                        {
+                            // Floor at zero: the counter predates this feature, so an issue
+                            // resolved before it shipped may not be represented in it.
+                            issueOwner.IssuesResolved = Math.Max(0, issueOwner.IssuesResolved - 1);
+                        }
+
                         issueOwner.UpdatedAt = DateTime.UtcNow;
                     }
+                }
+
+                if (shouldRewardResolution)
+                {
+                    // Stamped inside the transaction so the one-time guard cannot be defeated by a
+                    // retry or a failure further down, unlike the best-effort activity log below.
+                    issue.ResolutionRewardedAt = DateTime.UtcNow;
                 }
 
                 await context.SaveChangesAsync();
 
                 // Award points and check achievements for resolution (to the issue OWNER)
-                if (request.Status == IssueStatus.Resolved && previousStatus != IssueStatus.Resolved)
+                if (shouldRewardResolution)
                 {
                     // Award 100 points for resolving an issue to the issue owner
                     await gamificationService.AwardPointsAsync(
@@ -799,8 +826,9 @@ public class IssueService(
     /// </summary>
     private static string? ValidateStatusTransition(IssueStatus currentStatus, IssueStatus newStatus)
     {
-        // Users can only set these statuses
-        IssueStatus[] allowedUserStatuses = [IssueStatus.Cancelled, IssueStatus.Resolved];
+        // Users can only set these statuses. Active is permitted solely as the re-open of a
+        // resolved issue — see the guard below, which is what keeps it from being a way in.
+        IssueStatus[] allowedUserStatuses = [IssueStatus.Cancelled, IssueStatus.Resolved, IssueStatus.Active];
 
         if (!allowedUserStatuses.Contains(newStatus))
         {
@@ -813,15 +841,27 @@ public class IssueService(
             return $"Issue is already {newStatus}";
         }
 
-        // Cannot transition from terminal states
+        // Cancelled is absorbing. Unlike Resolved it is reachable from Submitted, UnderReview and
+        // Rejected, so letting anything out of it would republish content no admin ever approved.
         if (currentStatus == IssueStatus.Cancelled)
         {
             return "Cannot change status of a cancelled issue";
         }
 
-        if (currentStatus == IssueStatus.Resolved && newStatus != IssueStatus.Resolved)
+        // Resolved is terminal except for the author re-opening it. That one exit is safe where a
+        // Cancelled one would not be: Resolved is only reachable from Active (see the guard below),
+        // and a resolved issue is not owner-editable, so its content was approved by an admin and
+        // cannot have changed since. Re-opening therefore restores a state the issue already held.
+        if (currentStatus == IssueStatus.Resolved && newStatus != IssueStatus.Active)
         {
             return "Cannot change status of a resolved issue";
+        }
+
+        // The other half of that argument: Active is not a status an author may reach from
+        // anywhere else. Admin approval remains the only way an issue first goes live.
+        if (newStatus == IssueStatus.Active && currentStatus != IssueStatus.Resolved)
+        {
+            return "Only a resolved issue can be re-opened";
         }
 
         // Resolving is only meaningful for an issue that actually went live, and restricting it
