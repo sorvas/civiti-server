@@ -26,6 +26,21 @@ public class Issue
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    // When the author's resolution reward (points, achievement progress, badges) was granted.
+    // An author may resolve and re-open the same issue repeatedly; this makes that reward
+    // once-per-issue rather than once-per-resolution, so the cycle cannot be farmed. Null for
+    // issues resolved before this was introduced, which simply means the next resolve pays out.
+    // Written only by a conditional claim in IssueService.UpdateIssueStatusAsync — never read
+    // as a guard from an unlocked snapshot, because that is not a guard.
+    public DateTime? ResolutionRewardedAt { get; set; }
+
+    // When supporters were last told this issue was resolved. Resolving fans out a push and an
+    // email to every voter and commenter, so — unlike the reward, which is once per issue for
+    // good — this one is a cooldown rather than a latch: a genuine re-resolution months later
+    // should reach the people following it, while a resolve/re-open loop must not be able to
+    // mail them on every lap. See ResolutionNotifyCooldown.
+    public DateTime? ResolutionNotifiedAt { get; set; }
+
     // Cached AI-composed petition argument core (see IPetitionBodyCacheStore). Nullable until
     // first generated. ContentHash is a fingerprint of the prompt-affecting issue fields, so an
     // edit that changes them invalidates the cache automatically; GeneratedAt drives the TTL.

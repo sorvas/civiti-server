@@ -732,6 +732,55 @@ public class IssueServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Creating_A_First_Issue_Should_Award_The_First_Report_Badge()
+    {
+        // IssuesReported moves in SQL now, so the profile this method has tracked since before the
+        // transaction is stale by the time the post-commit gamification block runs. That block
+        // judges issues_reported badge thresholds against the very same instance, via identity
+        // resolution on the shared scoped DbContext -- so without a reload the first issue would
+        // not earn the first-report badge. Every other test here mocks IGamificationService, which
+        // is exactly why this class of bug survives; this one wires the real service.
+        var user = TestDataBuilder.CreateUser(supabaseUserId: "first_report_user");
+        var badge = TestDataBuilder.CreateBadge(
+            name: "First Report", requirementType: "issues_reported", requirementValue: 1);
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            ctx.Badges.Add(badge);
+            await ctx.SaveChangesAsync();
+        }
+
+        // One context behind both services, mirroring the scoped DI registration.
+        using var shared = _dbFactory.CreateContext();
+        var gamification = new GamificationService(
+            Mock.Of<ILogger<GamificationService>>(), shared, _notificationService.Object);
+        var svc = new IssueService(
+            _logger.Object, shared,
+            gamification, _memoryCache,
+            _activityService.Object, _notificationService.Object,
+            _adminNotifier.Object, _contentModerationService.Object);
+
+        await svc.CreateIssueAsync(
+            new CreateIssueRequest
+            {
+                Title = "Valid title",
+                Description = "Valid description",
+                Category = IssueCategory.Infrastructure,
+                Address = "Str. Test 1",
+                District = "Sector 1",
+                Latitude = 44.4,
+                Longitude = 26.1
+            },
+            "first_report_user");
+
+        using var verifyCtx = _dbFactory.CreateContext();
+        (await verifyCtx.UserProfiles.FindAsync(user.Id))!.IssuesReported.Should().Be(1);
+        verifyCtx.UserBadges.Where(ub => ub.UserId == user.Id).ToList()
+            .Should().ContainSingle(ub => ub.BadgeId == badge.Id,
+                "the badge is earned by this issue, not by the next one");
+    }
+    [Fact]
     public async Task CreateIssue_Should_Still_Create_Issue_When_Gamification_Throws()
     {
         // Gamification is a best-effort post-commit side effect: a failure in it (the

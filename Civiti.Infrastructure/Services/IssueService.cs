@@ -31,6 +31,15 @@ public class IssueService(
     : IIssueService
 {
     private static readonly TimeSpan EmailCooldownDuration = TimeSpan.FromHours(1);
+
+    // How long a resolution fan-out latches out further fan-outs for the same issue.
+    // Long enough that a resolve/re-open loop cannot mail an issue's supporters more
+    // than once a day, short enough that a problem which resurfaces and is genuinely
+    // fixed again still reaches them. Durable rather than in-memory (contrast the
+    // IMemoryCache debounce on comment mail in NotificationService) so it survives a
+    // restart and holds across instances.
+    private static readonly TimeSpan ResolutionNotifyCooldown = TimeSpan.FromHours(24);
+
     private const int PointsForIssueVote = 2;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -330,9 +339,13 @@ public class IssueService(
             context.IssueAuthorities.AddRange(
                 await IssueAuthorityWriter.MaterializeAsync(context, issue.Id, request.Authorities, now));
 
-            // Update user stats
-            userProfile.IssuesReported++;
-            userProfile.UpdatedAt = now;
+            // Update user stats. In SQL rather than in memory so two issues created at the
+            // same moment both count, matching the resolved counter in UpdateIssueStatusAsync.
+            await context.UserProfiles
+                .Where(u => u.Id == userProfile.Id)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(u => u.IssuesReported, u => u.IssuesReported + 1)
+                    .SetProperty(u => u.UpdatedAt, now));
 
             await context.SaveChangesAsync();
 
@@ -687,33 +700,132 @@ public class IssueService(
                     return (false, validationError);
                 }
 
-                // Update the status
                 IssueStatus previousStatus = issue.Status;
-                issue.Status = request.Status;
-                issue.UpdatedAt = DateTime.UtcNow;
+                DateTime changedAt = UtcTimestamp.Now();
 
-                // If status changed to Resolved, update gamification for the issue OWNER (not the caller)
-                if (request.Status == IssueStatus.Resolved && previousStatus != IssueStatus.Resolved)
+                // Everything below follows one rule: a side effect that cannot be taken back is
+                // preceded by a conditional UPDATE that claims the right to perform it, and the
+                // rows-affected count — never the snapshot read above — decides whether it runs.
+                // That read was taken without a row lock, so any guard derived from it states
+                // only what the row looked like a moment ago. Same shape as the claims in
+                // AdminService.ApproveIssueAsync and RequestChangesAsync.
+
+                // Claim 1 — the transition. ValidateStatusTransition ran against the unlocked
+                // snapshot, so two concurrent requests (a double-clicked "Rezolvă" is enough) can
+                // both pass it and both run the non-idempotent gamification below. The loser
+                // blocks on the row lock, re-evaluates against the committed status, matches no
+                // rows, and is turned away having changed nothing.
+                int claimedTransition = await context.Issues
+                    .Where(i => i.Id == issueId && i.Status == previousStatus)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(i => i.Status, request.Status)
+                        .SetProperty(i => i.UpdatedAt, changedAt));
+
+                if (claimedTransition == 0)
                 {
-                    // Get the issue owner's profile to update their stats
-                    UserProfile? issueOwner = issue.UserId == userProfile.Id
-                        ? userProfile
-                        : await context.UserProfiles.FirstOrDefaultAsync(u => u.Id == issue.UserId);
+                    await transaction.RollbackAsync();
+                    return (false, DomainErrors.IssueStatusConflict);
+                }
 
-                    // Owner may be null if their account was soft-deleted (filtered out by
-                    // the global query filter). Skip the stat update — the deleted user's
-                    // profile is anonymised and no longer participates in gamification.
-                    if (issueOwner != null)
+                // Keep the tracked entity in step with the claim: it still feeds the notification
+                // and the activity log below. SaveChangesAsync rewrites these same values, which
+                // is harmless — the row lock is already ours.
+                issue.Status = request.Status;
+                issue.UpdatedAt = changedAt;
+
+                bool isResolving = request.Status == IssueStatus.Resolved && previousStatus != IssueStatus.Resolved;
+                bool isReopening = request.Status == IssueStatus.Active && previousStatus == IssueStatus.Resolved;
+
+                // Paid once per issue, not once per resolution: an author can resolve and re-open
+                // the same issue repeatedly, and points, achievement progress and badges are all
+                // one-way. Badges cannot be un-awarded, so reversing the reward on re-open is not
+                // an option — instead it simply never pays twice.
+                bool shouldRewardResolution = false;
+
+                // Announced to supporters at most once per cooldown. NotifyIssueResolvedAsync fans
+                // out a push and an email to every voter and commenter, so a resolve/re-open loop
+                // would otherwise mail all of them on every lap. A cooldown rather than a latch,
+                // because an issue that genuinely comes back and is genuinely fixed again deserves
+                // to reach the people following it.
+                bool shouldNotifyResolution = false;
+
+                if (isResolving)
+                {
+                    // Claim 2 — the reward. Claiming the stamp rather than testing the snapshot
+                    // also closes a gap claim 1 alone leaves open: resolve, re-open, and a stale
+                    // request arrives to find the status it validated against has come back
+                    // around, so the transition claim waves it through.
+                    shouldRewardResolution = await context.Issues
+                        .Where(i => i.Id == issueId && i.ResolutionRewardedAt == null)
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(i => i.ResolutionRewardedAt, changedAt)) == 1;
+
+                    // Claim 3 — the fan-out. Stamped here, before the mail is attempted, so a
+                    // fan-out that throws burns the window rather than re-sending: for an
+                    // anti-spam guard, under-announcing is the safer failure.
+                    DateTime notifyCutoff = changedAt - ResolutionNotifyCooldown;
+                    shouldNotifyResolution = await context.Issues
+                        .Where(i => i.Id == issueId
+                            && (i.ResolutionNotifiedAt == null || i.ResolutionNotifiedAt < notifyCutoff))
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(i => i.ResolutionNotifiedAt, changedAt)) == 1;
+
+                    if (shouldRewardResolution)
                     {
-                        issueOwner.IssuesResolved++;
-                        issueOwner.UpdatedAt = DateTime.UtcNow;
+                        issue.ResolutionRewardedAt = changedAt;
+                    }
+
+                    if (shouldNotifyResolution)
+                    {
+                        issue.ResolutionNotifiedAt = changedAt;
+                    }
+                }
+
+                if (isResolving || isReopening)
+                {
+                    // Moved in SQL rather than read-modify-written in memory: an author resolving
+                    // two of their issues at the same moment would otherwise have both requests
+                    // write the same absolute value over each other, counting one. The global
+                    // query filter excludes soft-deleted owners, so an anonymised profile matches
+                    // no rows and keeps its stats — the same outcome as the previous null check,
+                    // without loading the row to discover it.
+                    IQueryable<UserProfile> ownerRow = context.UserProfiles.Where(u => u.Id == issue.UserId);
+
+                    if (isResolving)
+                    {
+                        await ownerRow.ExecuteUpdateAsync(setters => setters
+                            .SetProperty(u => u.IssuesResolved, u => u.IssuesResolved + 1)
+                            .SetProperty(u => u.UpdatedAt, changedAt));
+                    }
+                    else
+                    {
+                        await ownerRow.ExecuteUpdateAsync(setters => setters
+                            // Floor at zero: the counter predates this feature, so an issue
+                            // resolved before it shipped may not be represented in it.
+                            .SetProperty(u => u.IssuesResolved, u => Math.Max(0, u.IssuesResolved - 1))
+                            .SetProperty(u => u.UpdatedAt, changedAt));
+                    }
+
+                    // That SQL wrote past the change tracker. When the caller is the owner —
+                    // the normal path here — their profile has been tracked since the top of
+                    // this method, and EF hands that same stale instance back to every later
+                    // query for the row, including the one CheckAndAwardBadgesAsync uses to
+                    // test IssuesResolved against a badge threshold. Reload so the badge check
+                    // sees the count that was just moved.
+                    //
+                    // Reload rather than mirroring the change in memory: an assignment would
+                    // mark the property Modified and SaveChangesAsync would write an absolute
+                    // value back over the atomic move, reintroducing the very lost update the
+                    // move exists to prevent.
+                    if (issue.UserId == userProfile.Id)
+                    {
                     }
                 }
 
                 await context.SaveChangesAsync();
 
                 // Award points and check achievements for resolution (to the issue OWNER)
-                if (request.Status == IssueStatus.Resolved && previousStatus != IssueStatus.Resolved)
+                if (shouldRewardResolution)
                 {
                     // Award 100 points for resolving an issue to the issue owner
                     await gamificationService.AwardPointsAsync(
@@ -758,7 +870,9 @@ public class IssueService(
                 // Send notifications for status changes
                 try
                 {
-                    if (request.Status == IssueStatus.Resolved)
+                    // Gated on the fan-out claim, not on the requested status: re-resolving
+                    // inside the cooldown still succeeds, it just does not mail everyone again.
+                    if (shouldNotifyResolution)
                     {
                         UserProfile? issueOwner = issue.UserId == userProfile.Id
                             ? userProfile
@@ -799,8 +913,9 @@ public class IssueService(
     /// </summary>
     private static string? ValidateStatusTransition(IssueStatus currentStatus, IssueStatus newStatus)
     {
-        // Users can only set these statuses
-        IssueStatus[] allowedUserStatuses = [IssueStatus.Cancelled, IssueStatus.Resolved];
+        // Users can only set these statuses. Active is permitted solely as the re-open of a
+        // resolved issue — see the guard below, which is what keeps it from being a way in.
+        IssueStatus[] allowedUserStatuses = [IssueStatus.Cancelled, IssueStatus.Resolved, IssueStatus.Active];
 
         if (!allowedUserStatuses.Contains(newStatus))
         {
@@ -813,15 +928,27 @@ public class IssueService(
             return $"Issue is already {newStatus}";
         }
 
-        // Cannot transition from terminal states
+        // Cancelled is absorbing. Unlike Resolved it is reachable from Submitted, UnderReview and
+        // Rejected, so letting anything out of it would republish content no admin ever approved.
         if (currentStatus == IssueStatus.Cancelled)
         {
             return "Cannot change status of a cancelled issue";
         }
 
-        if (currentStatus == IssueStatus.Resolved && newStatus != IssueStatus.Resolved)
+        // Resolved is terminal except for the author re-opening it. That one exit is safe where a
+        // Cancelled one would not be: Resolved is only reachable from Active (see the guard below),
+        // and a resolved issue is not owner-editable, so its content was approved by an admin and
+        // cannot have changed since. Re-opening therefore restores a state the issue already held.
+        if (currentStatus == IssueStatus.Resolved && newStatus != IssueStatus.Active)
         {
             return "Cannot change status of a resolved issue";
+        }
+
+        // The other half of that argument: Active is not a status an author may reach from
+        // anywhere else. Admin approval remains the only way an issue first goes live.
+        if (newStatus == IssueStatus.Active && currentStatus != IssueStatus.Resolved)
+        {
+            return "Only a resolved issue can be re-opened";
         }
 
         // Resolving is only meaningful for an issue that actually went live, and restricting it

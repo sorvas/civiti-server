@@ -11,7 +11,8 @@ public class UpdateIssueStatusRequest
 {
     /// <summary>
     /// The new status for the issue.
-    /// Users can set: Cancelled, Resolved
+    /// Users can set: Cancelled (from any non-terminal status), Resolved (only from Active),
+    /// Active (only from Resolved — re-opening an issue they had resolved).
     /// </summary>
     [Required]
     public IssueStatus Status { get; set; }

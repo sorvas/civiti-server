@@ -35,6 +35,60 @@ viewable.
 
 ---
 
+## 1a. New: the author can re-open a resolved issue
+
+`PUT /api/user/issues/{id}/status` now also accepts `"status": "active"`, valid **only** when the
+issue is currently `Resolved`. It returns `204` and the issue goes straight back to `Active` with
+no admin re-review. Anything else is a `400`:
+
+```jsonc
+// 400 — from Submitted / UnderReview / Rejected / Draft
+{ "error": "Only a resolved issue can be re-opened" }
+
+// 400 — Cancelled is still absorbing
+{ "error": "Cannot change status of a cancelled issue" }
+```
+
+**Action:** gate any "re-open" affordance on `status === "resolved"`. Do not offer it on a
+cancelled issue.
+
+**Why this is safe, when re-opening a cancelled issue would not be:** `Resolved` is reachable only
+from `Active` (§1), and a resolved issue is not owner-editable, so its content was approved by an
+admin and cannot have changed since. Re-opening restores a state the issue already legitimately
+held. `Cancelled` is reachable from `Submitted`, `UnderReview` and `Rejected`, so the same exit
+there would publish content that was never reviewed.
+
+**Gamification:** resolving awards the author 100 points, `issues_resolved` achievement progress
+and any badges that unlocks — but now only the **first** time a given issue is resolved, so
+re-open/re-resolve cycles cannot farm it. The `IssuesResolved` counter is the exception and moves
+both ways, since it describes the issue's current state.
+
+**Notifications:** resolving pushes and emails every voter and commenter on the issue. That
+fan-out is now capped at one per issue per 24 hours, so a re-open/re-resolve cycle cannot mail
+an issue's supporters on every lap. Re-resolving inside that window still returns `204` and
+still moves the issue to `Resolved` — only the announcement is suppressed. Nothing in the
+response distinguishes the two cases; do not build UI copy that promises supporters were told.
+
+**New: `409` on a concurrent status change.** Every status transition is now claimed atomically,
+so a request that loses a race (two PUTs from a double-clicked button, say) is rejected rather
+than being applied twice:
+
+```jsonc
+// 409
+{
+  "error": "This issue's status changed while your request was being processed. Reload it and try again.",
+  "code": "ISSUE_STATUS_CONFLICT"
+}
+```
+
+**Action:** reload the issue and show its current status. Nothing was awarded twice and nothing
+was half-applied, so there is no cleanup to do — but do **not** assume the user's own change
+went through. A `409` only says the status moved out from under the request; the winning
+request may have been a different transition entirely (an admin cancelling it, say). Decide
+from the reloaded status whether to retry silently or tell the user what happened instead.
+
+---
+
 ## 2. Breaking: the edit request is stricter than the spec
 
 ### Every editable field is required on every call

@@ -1,6 +1,7 @@
 using Civiti.Infrastructure.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Civiti.Tests.Helpers;
 
@@ -29,6 +30,18 @@ public sealed class TestDbContextFactory : IDisposable
     }
 
     public CivitiDbContext CreateContext() => new(_options);
+
+    /// <summary>
+    /// A context with command interceptors attached, for tests that need to act in the middle
+    /// of a service's own statement sequence — the only way to reach a conditional claim's
+    /// losing branch here, since every context shares one SQLite connection and so cannot hold
+    /// two genuinely concurrent transactions.
+    /// </summary>
+    public CivitiDbContext CreateContext(params IInterceptor[] interceptors) =>
+        new(new DbContextOptionsBuilder<CivitiDbContext>()
+            .UseSqlite(_connection)
+            .AddInterceptors(interceptors)
+            .Options);
 
     public void Dispose() => _connection.Dispose();
 }

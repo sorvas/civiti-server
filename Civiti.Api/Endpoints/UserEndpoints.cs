@@ -455,6 +455,8 @@ public static class UserEndpoints
                     DomainErrors.IssueNotFound => Results.NotFound(new { error }),
                     DomainErrors.UserProfileNotFound => Results.NotFound(new { error }),
                     DomainErrors.ChangeOwnIssueStatusOnly => Results.Forbid(),
+                    DomainErrors.IssueStatusConflict => Results.Conflict(
+                        new { error, code = ErrorCodes.IssueStatusConflict }),
                     _ => Results.BadRequest(new { error })
                 };
             }
@@ -463,12 +465,13 @@ public static class UserEndpoints
         })
         .WithName("UpdateUserIssueStatus")
         .WithSummary("Update issue status")
-        .WithDescription("Allows the authenticated user to change their issue's status. Users can set status to: Cancelled, Resolved. Cannot change status of already cancelled or resolved issues.")
+        .WithDescription("Allows the authenticated user to change their issue's status. Users can set status to: Cancelled (from any non-terminal status), Resolved (only from Active), and Active (only from Resolved — re-opening an issue they had resolved). Cancelled is terminal and cannot be changed.")
         .Produces(StatusCodes.Status204NoContent)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status401Unauthorized)
         .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status409Conflict);
 
         // PUT /api/user/issues/{id}
         group.MapPut(ApiRoutes.User.IssueById, async (
