@@ -337,6 +337,13 @@ public class UserService(
                 // Flush gamification notifications now that the transaction is committed
                 await gamificationService.FlushPendingNotificationsAsync();
 
+                // Points and level now move in SQL inside the gamification calls above, so
+                // this tracked copy predates any award the login streak just earned. It is
+                // the instance GetUserProfileAsync returns, so without this the profile
+                // response under-reports until the user's next request. Must run before the
+                // detach below — reloading a detached entry does nothing.
+                await context.Entry(user).ReloadAsync();
+
                 // Detach entity and return to avoid tracking issues with subsequent queries
                 context.Entry(user).State = EntityState.Detached;
                 return user;

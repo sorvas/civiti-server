@@ -339,9 +339,13 @@ public class IssueService(
             context.IssueAuthorities.AddRange(
                 await IssueAuthorityWriter.MaterializeAsync(context, issue.Id, request.Authorities, now));
 
-            // Update user stats
-            userProfile.IssuesReported++;
-            userProfile.UpdatedAt = now;
+            // Update user stats. In SQL rather than in memory so two issues created at the
+            // same moment both count, matching the resolved counter in UpdateIssueStatusAsync.
+            await context.UserProfiles
+                .Where(u => u.Id == userProfile.Id)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(u => u.IssuesReported, u => u.IssuesReported + 1)
+                    .SetProperty(u => u.UpdatedAt, now));
 
             await context.SaveChangesAsync();
 
@@ -798,7 +802,7 @@ public class IssueService(
                         await ownerRow.ExecuteUpdateAsync(setters => setters
                             // Floor at zero: the counter predates this feature, so an issue
                             // resolved before it shipped may not be represented in it.
-                            .SetProperty(u => u.IssuesResolved, u => u.IssuesResolved > 0 ? u.IssuesResolved - 1 : 0)
+                            .SetProperty(u => u.IssuesResolved, u => Math.Max(0, u.IssuesResolved - 1))
                             .SetProperty(u => u.UpdatedAt, changedAt));
                     }
 
@@ -815,7 +819,6 @@ public class IssueService(
                     // move exists to prevent.
                     if (issue.UserId == userProfile.Id)
                     {
-                        await context.Entry(userProfile).ReloadAsync();
                     }
                 }
 

@@ -3,6 +3,7 @@ using Civiti.Infrastructure.Services;
 using Civiti.Application.Services;
 using Civiti.Tests.Helpers;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -77,6 +78,59 @@ public class GamificationServiceTests : IDisposable
             Times.Once);
     }
 
+    [Fact]
+    public async Task AwardPoints_Should_Award_A_Level_Badge_On_The_Award_That_Reaches_It()
+    {
+        // Points move in SQL now, so the tracked profile this method loaded is stale the moment
+        // the balance changes. The level is derived from that balance and CheckBadgeRequirement
+        // judges "level" badges against it, so without the reload the badge is missed on the very
+        // award that earns it -- and only lands on some later, unrelated award.
+        var user = TestDataBuilder.CreateUser(points: 40, level: 1);
+        var badge = TestDataBuilder.CreateBadge(
+            name: "Level Two", requirementType: "level", requirementValue: 2);
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            ctx.Badges.Add(badge);
+            await ctx.SaveChangesAsync();
+        }
+
+        // One service instance, so the award and the badge check share a DbContext exactly as
+        // the scoped DI registration makes them share one per request.
+        var svc = CreateService();
+        await svc.AwardPointsAsync(user.Id, 15, "test");
+        await svc.CheckAndAwardBadgesAsync(user.Id);
+
+        using var verifyCtx = _dbFactory.CreateContext();
+        var stored = await verifyCtx.UserProfiles.FindAsync(user.Id);
+        // 40 + 15 = 55 crosses into level 2, which earns the badge, whose Common rarity pays
+        // a further 50. Asserting the total therefore also pins that the badge bonus landed.
+        stored!.Points.Should().Be(105);
+        stored.Level.Should().Be(2);
+        verifyCtx.UserBadges.Where(ub => ub.UserId == user.Id).ToList()
+            .Should().ContainSingle(ub => ub.BadgeId == badge.Id,
+                "the level badge is earned by this award, not by the next one");
+    }
+
+    [Fact]
+    public async Task Awarding_Points_Twice_Should_Accumulate_Across_Calls_On_One_Context()
+    {
+        // The read-modify-write this replaced kept the total on a tracked entity, so a second
+        // award computed from the first one's starting value. True concurrency is not expressible
+        // here -- every context shares one SQLite connection -- but sequential awards through one
+        // service still pin that each award is applied to the row's real balance.
+        var user = TestDataBuilder.CreateUser(points: 0, level: 1);
+        using (var ctx = _dbFactory.CreateContext()) { ctx.UserProfiles.Add(user); await ctx.SaveChangesAsync(); }
+
+        var svc = CreateService();
+        await svc.AwardPointsAsync(user.Id, 10, "first");
+        await svc.AwardPointsAsync(user.Id, 10, "second");
+        await svc.DeductPointsAsync(user.Id, 5, "refund");
+
+        using var verifyCtx = _dbFactory.CreateContext();
+        (await verifyCtx.UserProfiles.FindAsync(user.Id))!.Points.Should().Be(15);
+    }
     // ── DeductPointsAsync ──
 
     [Fact]
@@ -158,6 +212,49 @@ public class GamificationServiceTests : IDisposable
         userBadges[0].BadgeId.Should().Be(badge.Id);
     }
 
+    [Fact]
+    public async Task CheckAndAwardBadges_Should_Judge_A_Counter_Moved_In_SQL_Not_A_Stale_Copy()
+    {
+        // Counters move in SQL now (IssuesReported, IssuesResolved, CommunityVotes, Points ->
+        // Level), which writes past the change tracker. Any caller that already had the profile
+        // tracked keeps the pre-move copy, and EF identity resolution hands that same instance
+        // back to the query this method runs -- so the badge earned by the move would be judged
+        // against the number from before it.
+        //
+        // Today every production path happens to award points first, and AwardPointsAsync reloads,
+        // which masks this. That is call-order luck, not a guarantee, so pin it directly: move a
+        // counter with no intervening award and require the badge to still land.
+        var user = TestDataBuilder.CreateUser();
+        var badge = TestDataBuilder.CreateBadge(
+            name: "Reporter", requirementType: "issues_reported", requirementValue: 5);
+
+        using (var ctx = _dbFactory.CreateContext())
+        {
+            ctx.UserProfiles.Add(user);
+            ctx.Badges.Add(badge);
+            await ctx.SaveChangesAsync();
+        }
+
+        using var shared = _dbFactory.CreateContext();
+
+        // Track the profile first, exactly as a caller would before doing its own work.
+        UserProfile tracked = await shared.UserProfiles.FirstAsync(u => u.Id == user.Id);
+        tracked.IssuesReported.Should().Be(0);
+
+        // Move the counter past the change tracker. `tracked` still reads 0 after this.
+        await shared.UserProfiles
+            .Where(u => u.Id == user.Id)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.IssuesReported, 5));
+        tracked.IssuesReported.Should().Be(0, "ExecuteUpdate deliberately bypasses the tracker");
+
+        var svc = new GamificationService(_logger.Object, shared, _notificationService.Object);
+        await svc.CheckAndAwardBadgesAsync(user.Id);
+
+        using var verifyCtx = _dbFactory.CreateContext();
+        verifyCtx.UserBadges.Where(ub => ub.UserId == user.Id).ToList()
+            .Should().ContainSingle(ub => ub.BadgeId == badge.Id,
+                "the badge must be judged against the row, not against the tracked copy");
+    }
     [Fact]
     public async Task CheckAndAwardBadges_Should_Skip_Already_Earned()
     {

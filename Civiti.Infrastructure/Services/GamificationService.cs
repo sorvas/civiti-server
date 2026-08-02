@@ -59,24 +59,51 @@ public class GamificationService(
                 return;
             }
 
-            user.Points += points;
+            // The balance moves in SQL rather than being read-modify-written in memory. Point
+            // awards arrive from unrelated paths — a vote, a comment, an approval — and two that
+            // overlap would otherwise both compute from the same starting total, so the second
+            // write would silently swallow the first. The soft-delete guard has to be repeated
+            // here: the check above was against a snapshot, and ExecuteUpdate does not see it.
+            await context.UserProfiles
+                .IgnoreQueryFilters()
+                .Where(u => u.Id == userId && !u.IsDeleted)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(u => u.Points, u => u.Points + points)
+                    .SetProperty(u => u.UpdatedAt, DateTime.UtcNow));
+
+            // That wrote past the change tracker, and this service shares its DbContext with
+            // whichever caller invoked it, so `user` — and every later query that identity-resolves
+            // to it — still holds the old balance. The level below is derived from it, and
+            // CheckBadgeRequirement judges the seeded "level" badges against user.Level.
+            // Reload rather than mirroring the change in memory: an assignment would mark the
+            // property Modified and SaveChangesAsync would write an absolute value back over the
+            // atomic move, reintroducing the very lost update this exists to prevent.
+            await context.Entry(user).ReloadAsync();
 
             // Update level if needed
             var newLevel = CalculateLevelFromPoints(user.Points);
             if (newLevel > user.Level)
             {
-                user.Level = newLevel;
-                logger.LogInformation("User {UserId} leveled up to {Level}", userId, newLevel);
+                // Claim the level-up. Two awards that both carry the user over the same threshold
+                // would otherwise each announce it and each set the level_up achievement.
+                int levelled = await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .Where(u => u.Id == userId && u.Level < newLevel)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.Level, newLevel));
 
-                // Award level up achievement (use absolute progress to set level directly)
-                await UpdateAchievementProgressAsync(userId, "level_up", newLevel, isAbsolute: true, saveChanges: false);
+                if (levelled == 1)
+                {
+                    await context.Entry(user).ReloadAsync();
+                    logger.LogInformation("User {UserId} leveled up to {Level}", userId, newLevel);
 
-                var capturedUser = user;
-                var capturedLevel = newLevel;
-                _pendingNotifications.Add(() => notificationService.NotifyLevelUpAsync(capturedUser, capturedLevel));
+                    // Award level up achievement (use absolute progress to set level directly)
+                    await UpdateAchievementProgressAsync(userId, "level_up", newLevel, isAbsolute: true, saveChanges: false);
+
+                    var capturedUser = user;
+                    var capturedLevel = newLevel;
+                    _pendingNotifications.Add(() => notificationService.NotifyLevelUpAsync(capturedUser, capturedLevel));
+                }
             }
-
-            user.UpdatedAt = DateTime.UtcNow;
 
             if (saveChanges)
             {
@@ -112,20 +139,36 @@ public class GamificationService(
                 return;
             }
 
-            user.Points = Math.Max(0, user.Points - points);
+            // Mirror of AwardPointsAsync: the balance moves in SQL so overlapping deductions
+            // (deleting a comment that carried helpful votes hits this several times) cannot
+            // overwrite one another. The floor stays in the same expression so it is applied to
+            // the row's real value rather than to a snapshot of it.
+            await context.UserProfiles
+                .IgnoreQueryFilters()
+                .Where(u => u.Id == userId && !u.IsDeleted)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(u => u.Points, u => Math.Max(0, u.Points - points))
+                    .SetProperty(u => u.UpdatedAt, DateTime.UtcNow));
+
+            // See AwardPointsAsync: without this the level below would be recomputed from the
+            // pre-deduction total, which could leave the user standing above the points they have.
+            await context.Entry(user).ReloadAsync();
 
             // Recalculate level based on new points
             var newLevel = CalculateLevelFromPoints(user.Points);
             if (newLevel < user.Level)
             {
-                user.Level = newLevel;
+                await context.UserProfiles
+                    .IgnoreQueryFilters()
+                    .Where(u => u.Id == userId && u.Level > newLevel)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.Level, newLevel));
+
+                await context.Entry(user).ReloadAsync();
                 logger.LogInformation("User {UserId} level decreased to {Level} after point deduction", userId, newLevel);
 
                 // Note: Achievement progress is intentionally NOT decreased when level drops.
                 // Achievements represent historical accomplishments and should not regress.
             }
-
-            user.UpdatedAt = DateTime.UtcNow;
 
             if (saveChanges)
             {
@@ -161,6 +204,18 @@ public class GamificationService(
                 logger.LogDebug("Skipping badge check for soft-deleted user: {UserId}", userId);
                 return;
             }
+
+            // Every counter this method judges — IssuesReported, IssuesResolved,
+            // CommunityVotes, Level — is moved in SQL by its callers and by AwardPointsAsync,
+            // which writes past the change tracker. The query above does not rescue that: EF
+            // identity resolution hands back whatever instance this context already tracks,
+            // with the values it held when first loaded. So the badge earned by the very
+            // action that moved the counter would be judged against the number from before
+            // it moved, and missed until some later, unrelated award.
+            //
+            // Refreshing here rather than at each call site puts it where the stale read
+            // actually happens, so a caller cannot forget it or defeat it by reordering.
+            await context.Entry(user).ReloadAsync();
 
             HashSet<Guid> earnedBadgeIds = user.UserBadges.Select(ub => ub.BadgeId).ToHashSet();
             List<Badge> allBadges = await context.Badges.Where(b => b.IsActive).ToListAsync();
