@@ -20,4 +20,11 @@ public static class ErrorCodes
     /// The client should reload the issue and let the owner reapply their edits.
     /// </summary>
     public const string IssueEditConflict = "ISSUE_EDIT_CONFLICT";
+
+    /// <summary>
+    /// 409 — a concurrent request moved the issue out of the status this transition was
+    /// validated against (a double-clicked "Rezolvă" is enough). Nothing was applied and
+    /// nothing was awarded; the client should reload and decide again from the new status.
+    /// </summary>
+    public const string IssueStatusConflict = "ISSUE_STATUS_CONFLICT";
 }

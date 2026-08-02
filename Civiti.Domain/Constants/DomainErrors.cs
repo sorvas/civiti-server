@@ -21,6 +21,8 @@ public static class DomainErrors
     public const string ChangeOwnIssueStatusOnly = "You can only change status of your own issues";
     public const string IssueEditConflict =
         "This issue changed since you opened it. Reload it and apply your edits again.";
+    public const string IssueStatusConflict =
+        "This issue's status changed while your request was being processed. Reload it and try again.";
     public const string CommentRateLimited = "Please wait before posting another comment";
     public const string DuplicateComment = "You have already posted this comment";
     public const string AlreadyReported = "You have already reported this content";

@@ -455,6 +455,8 @@ public static class UserEndpoints
                     DomainErrors.IssueNotFound => Results.NotFound(new { error }),
                     DomainErrors.UserProfileNotFound => Results.NotFound(new { error }),
                     DomainErrors.ChangeOwnIssueStatusOnly => Results.Forbid(),
+                    DomainErrors.IssueStatusConflict => Results.Conflict(
+                        new { error, code = ErrorCodes.IssueStatusConflict }),
                     _ => Results.BadRequest(new { error })
                 };
             }
@@ -468,7 +470,8 @@ public static class UserEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status401Unauthorized)
         .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .Produces(StatusCodes.Status409Conflict);
 
         // PUT /api/user/issues/{id}
         group.MapPut(ApiRoutes.User.IssueById, async (

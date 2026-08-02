@@ -63,6 +63,30 @@ and any badges that unlocks — but now only the **first** time a given issue is
 re-open/re-resolve cycles cannot farm it. The `IssuesResolved` counter is the exception and moves
 both ways, since it describes the issue's current state.
 
+**Notifications:** resolving pushes and emails every voter and commenter on the issue. That
+fan-out is now capped at one per issue per 24 hours, so a re-open/re-resolve cycle cannot mail
+an issue's supporters on every lap. Re-resolving inside that window still returns `204` and
+still moves the issue to `Resolved` — only the announcement is suppressed. Nothing in the
+response distinguishes the two cases; do not build UI copy that promises supporters were told.
+
+**New: `409` on a concurrent status change.** Every status transition is now claimed atomically,
+so a request that loses a race (two PUTs from a double-clicked button, say) is rejected rather
+than being applied twice:
+
+```jsonc
+// 409
+{
+  "error": "This issue's status changed while your request was being processed. Reload it and try again.",
+  "code": "ISSUE_STATUS_CONFLICT"
+}
+```
+
+**Action:** reload the issue and show its current status. Nothing was awarded twice and nothing
+was half-applied, so there is no cleanup to do — but do **not** assume the user's own change
+went through. A `409` only says the status moved out from under the request; the winning
+request may have been a different transition entirely (an admin cancelling it, say). Decide
+from the reloaded status whether to retry silently or tell the user what happened instead.
+
 ---
 
 ## 2. Breaking: the edit request is stricter than the spec
