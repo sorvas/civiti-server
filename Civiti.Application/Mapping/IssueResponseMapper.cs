@@ -15,8 +15,9 @@ namespace Civiti.Application.Mapping;
 public static class IssueResponseMapper
 {
     /// <summary>
-    /// Requires <see cref="Issue.Photos"/>, <see cref="Issue.IssueAuthorities"/> (with their
-    /// <see cref="IssueAuthority.Authority"/>) and <see cref="Issue.User"/> to be loaded.
+    /// Requires <see cref="Issue.Photos"/>, <see cref="Issue.ResolutionPhotos"/>,
+    /// <see cref="Issue.IssueAuthorities"/> (with their <see cref="IssueAuthority.Authority"/>)
+    /// and <see cref="Issue.User"/> to be loaded.
     /// </summary>
     /// <param name="issue">The loaded issue.</param>
     /// <param name="hasVoted">
@@ -42,6 +43,7 @@ public static class IssueResponseMapper
         CommunityImpact = issue.CommunityImpact,
         CreatedAt = issue.CreatedAt,
         UpdatedAt = issue.UpdatedAt,
+        ResolvedAt = issue.ResolvedAt,
         Photos = issue.Photos.InDisplayOrder()
             .Select(p => new IssuePhotoResponse
             {
@@ -49,6 +51,20 @@ public static class IssueResponseMapper
                 Url = p.Url,
                 Description = p.Description,
                 IsPrimary = p.IsPrimary,
+                CreatedAt = p.CreatedAt
+            })
+            .ToList(),
+        // Ordered on DisplayOrder alone: unlike issue photos there are no rows predating the
+        // column to fall back for, and no primary to hoist. Id breaks the tie so the sequence
+        // is stable across requests rather than left to the provider.
+        ResolutionPhotos = issue.ResolutionPhotos
+            .OrderBy(p => p.DisplayOrder)
+            .ThenBy(p => p.Id)
+            .Select(p => new IssueResolutionPhotoResponse
+            {
+                Id = p.Id,
+                Url = p.Url,
+                Description = p.Description,
                 CreatedAt = p.CreatedAt
             })
             .ToList(),

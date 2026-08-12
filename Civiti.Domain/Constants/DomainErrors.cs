@@ -19,6 +19,8 @@ public static class DomainErrors
     public const string DeleteOwnCommentsOnly = "You can only delete your own comments";
     public const string EditOwnIssuesOnly = "You can only edit your own issues";
     public const string ChangeOwnIssueStatusOnly = "You can only change status of your own issues";
+    public const string ResolutionPhotosRequireResolved =
+        "Resolution photos can only be attached when resolving an issue";
     public const string IssueEditConflict =
         "This issue changed since you opened it. Reload it and apply your edits again.";
     public const string IssueStatusConflict =

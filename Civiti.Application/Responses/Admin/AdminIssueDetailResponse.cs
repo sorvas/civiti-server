@@ -1,5 +1,6 @@
 using Civiti.Domain.Entities;
 using Civiti.Application.Responses.Authority;
+using Civiti.Application.Responses.Issues;
 
 namespace Civiti.Application.Responses.Admin;
 
@@ -85,6 +86,18 @@ public class AdminIssueDetailResponse
 
     /// <summary>Photos attached to the issue</summary>
     public List<AdminIssuePhotoResponse> Photos { get; set; } = [];
+
+    /// <summary>
+    /// The author's "after" photos for the current resolution; empty unless the issue is
+    /// Resolved.
+    /// <para>
+    /// Surfaced to moderators because this is the only content a user can publish onto a live
+    /// public page without passing back through review — resolving is owner-driven and takes no
+    /// approval. A reported issue has to be inspectable here, and <c>request-changes</c> is the
+    /// lever that takes the set down.
+    /// </para>
+    /// </summary>
+    public List<IssueResolutionPhotoResponse> ResolutionPhotos { get; set; } = [];
 
     /// <summary>Authorities linked to the issue</summary>
     public List<IssueAuthorityResponse> Authorities { get; set; } = [];

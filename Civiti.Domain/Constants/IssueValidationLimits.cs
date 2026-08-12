@@ -23,6 +23,13 @@ public static class IssueValidationLimits
 
     public const int MaxPhotoCount = 8;
 
+    /// <summary>
+    /// Resolution ("after") photos, attached when the author marks an issue resolved. Far tighter
+    /// than <see cref="MaxPhotoCount"/> because this set has exactly one job — show that the
+    /// reported thing got fixed — and a wall of images buries it. Three is what the clients offer.
+    /// </summary>
+    public const int MaxResolutionPhotoCount = 3;
+
     /// <summary>Matches the width used for other user-supplied URLs (profile photos).</summary>
     public const int MaxPhotoUrlLength = 1000;
 
