@@ -572,6 +572,38 @@ public class AdminServiceSnapshotTests : IDisposable
         pending.Items.Single(i => i.Id == fresh.Id).IsReReview.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task Requesting_Changes_On_A_Resolved_Issue_Should_Take_Down_Its_Proof()
+    {
+        // Approval and rejection both refuse anything outside Submitted/UnderReview, so this is
+        // the only admin route out of Resolved. Clients are told a resolution photo set exists
+        // only while the issue is Resolved — and this is also the sole lever an admin has over
+        // photos that reached a live public page without passing back through review.
+        var (admin, owner, issue) = await SeedAsync(IssueStatus.Active);
+
+        (await CreateIssueService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest
+            {
+                Status = IssueStatus.Resolved,
+                ResolutionPhotoUrls = ["https://cdn.test/proof.jpg"]
+            },
+            owner.SupabaseUserId)).Success.Should().BeTrue();
+
+        var result = await CreateAdminService().RequestChangesAsync(
+            issue.Id,
+            new RequestChangesRequest { RequestedChanges = "The photo shows a different street" },
+            admin.SupabaseUserId);
+        result.Success.Should().BeTrue(result.Message);
+
+        Issue underReview = await ReadIssueAsync(issue.Id);
+        underReview.Status.Should().Be(IssueStatus.UnderReview);
+        underReview.ResolvedAt.Should().BeNull("a resolution date on an issue back under review is a lie");
+
+        using var ctx = _dbFactory.CreateContext();
+        (await ctx.IssueResolutionPhotos.AsNoTracking().ToListAsync()).Should().BeEmpty();
+    }
+
     private async Task<Issue> ReadIssueAsync(Guid id)
     {
         using var ctx = _dbFactory.CreateContext();

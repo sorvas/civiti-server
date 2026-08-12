@@ -24,10 +24,44 @@ public class IssueDetailResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    /// <summary>
+    /// When the issue entered the Resolved state it is in now; <c>null</c> for anything not
+    /// currently Resolved. Not <see cref="UpdatedAt"/>, which a later edit or vote also moves.
+    /// </summary>
+    public DateTime? ResolvedAt { get; set; }
+
     // Related data
     public List<IssuePhotoResponse> Photos { get; set; } = [];
+
+    /// <summary>
+    /// The author's "after" photos for the current resolution, in the order they arranged them.
+    /// Empty unless <see cref="Status"/> is <see cref="IssueStatus.Resolved"/>, and empty for a
+    /// resolution the author chose not to photograph — attaching proof is optional.
+    /// </summary>
+    public List<IssueResolutionPhotoResponse> ResolutionPhotos { get; set; } = [];
+
     public List<IssueAuthorityResponse> Authorities { get; set; } = [];
     public UserBasicResponse User { get; set; } = null!;
+}
+
+/// <summary>
+/// An "after" photo attached when the author resolved the issue. Deliberately not an
+/// <see cref="IssuePhotoResponse"/>: <c>IsPrimary</c> carries no meaning in a resolution set,
+/// and emitting a field that is always false invites clients to build on it.
+/// </summary>
+public class IssueResolutionPhotoResponse
+{
+    public Guid Id { get; set; }
+
+    /// <summary>
+    /// Author-supplied and echoed verbatim, so it is marked untrusted even though it is only a
+    /// URL: up to 1000 characters of chosen path and query survive the scheme check, and an MCP
+    /// client renders this string into a model's context.
+    /// </summary>
+    [Untrusted] public string Url { get; set; } = string.Empty;
+
+    [Untrusted] public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public class IssuePhotoResponse

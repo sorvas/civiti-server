@@ -541,6 +541,228 @@ public class IssueServiceStatusTests : IDisposable
             .Should().ContainSingle(ub => ub.UserId == owner.Id && ub.BadgeId == badge.Id,
                 "the badge is earned by this resolution, not by the next one");
     }
+
+    [Fact]
+    public async Task Resolving_Should_Store_The_Proof_Photos_In_The_Order_They_Were_Sent()
+    {
+        var (owner, issue) = await SeedAsync(IssueStatus.Active);
+
+        (await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest
+            {
+                Status = IssueStatus.Resolved,
+                ResolutionPhotoUrls = ["https://cdn.test/after-1.jpg", "https://cdn.test/after-2.jpg"]
+            },
+            owner.SupabaseUserId)).Success.Should().BeTrue();
+
+        using var ctx = _dbFactory.CreateContext();
+        List<IssueResolutionPhoto> stored = await ctx.IssueResolutionPhotos
+            .AsNoTracking().Where(p => p.IssueId == issue.Id)
+            .OrderBy(p => p.DisplayOrder).ToListAsync();
+
+        stored.Select(p => p.Url).Should()
+            .Equal("https://cdn.test/after-1.jpg", "https://cdn.test/after-2.jpg");
+        stored.Select(p => p.DisplayOrder).Should().Equal(0, 1);
+
+        // The stamp the clients date the resolved banner from. UpdatedAt cannot stand in for it:
+        // any later edit or vote moves that one.
+        (await ctx.Issues.AsNoTracking().FirstAsync(i => i.Id == issue.Id))
+            .ResolvedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Resolving_Without_Proof_Should_Still_Resolve()
+    {
+        // Attaching proof is optional, and the bare resolve stays the common case — the
+        // my-issues card offers no picker at all and sends exactly this request.
+        var (owner, issue) = await SeedAsync(IssueStatus.Active);
+
+        (await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest { Status = IssueStatus.Resolved },
+            owner.SupabaseUserId)).Success.Should().BeTrue();
+
+        using var ctx = _dbFactory.CreateContext();
+        (await ctx.Issues.AsNoTracking().FirstAsync(i => i.Id == issue.Id))
+            .Status.Should().Be(IssueStatus.Resolved);
+        (await ctx.IssueResolutionPhotos.AsNoTracking().ToListAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Reopening_Should_Delete_The_Proof_And_Clear_ResolvedAt()
+    {
+        // The invariant every client renders on: a resolution photo set exists only while the
+        // issue is Resolved. Left behind, the proof would strand on an Active issue, and could
+        // resurface later on a resolve that attached nothing of its own.
+        var (owner, issue) = await SeedAsync(IssueStatus.Active);
+
+        (await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest
+            {
+                Status = IssueStatus.Resolved,
+                ResolutionPhotoUrls = ["https://cdn.test/after.jpg"]
+            },
+            owner.SupabaseUserId)).Success.Should().BeTrue();
+
+        (await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest { Status = IssueStatus.Active },
+            owner.SupabaseUserId)).Success.Should().BeTrue();
+
+        using var ctx = _dbFactory.CreateContext();
+        (await ctx.IssueResolutionPhotos.AsNoTracking().ToListAsync()).Should().BeEmpty();
+        (await ctx.Issues.AsNoTracking().FirstAsync(i => i.Id == issue.Id))
+            .ResolvedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Re_Resolving_Should_Replace_The_Previous_Proof_Rather_Than_Accumulate()
+    {
+        // Replace-set semantics: what is displayed is what the LATEST resolve attached.
+        var (owner, issue) = await SeedAsync(IssueStatus.Active);
+
+        (await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest
+            {
+                Status = IssueStatus.Resolved,
+                ResolutionPhotoUrls = ["https://cdn.test/first.jpg"]
+            },
+            owner.SupabaseUserId)).Success.Should().BeTrue();
+
+        (await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest { Status = IssueStatus.Active },
+            owner.SupabaseUserId)).Success.Should().BeTrue();
+
+        (await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest
+            {
+                Status = IssueStatus.Resolved,
+                ResolutionPhotoUrls = ["https://cdn.test/second.jpg"]
+            },
+            owner.SupabaseUserId)).Success.Should().BeTrue();
+
+        using var ctx = _dbFactory.CreateContext();
+        (await ctx.IssueResolutionPhotos.AsNoTracking().ToListAsync())
+            .Select(p => p.Url).Should().Equal("https://cdn.test/second.jpg");
+    }
+
+    [Theory]
+    [InlineData(IssueStatus.Cancelled)]
+    [InlineData(IssueStatus.Active)]
+    public async Task Proof_Should_Be_Rejected_On_Every_Transition_But_Resolving(
+        IssueStatus nonResolvingTarget)
+    {
+        // Rejected rather than dropped: a client attaching proof to a cancel has misunderstood
+        // the call, and silently succeeding would hide that until someone noticed the photos
+        // were never displayed anywhere.
+        IssueStatus seedStatus = nonResolvingTarget == IssueStatus.Active
+            ? IssueStatus.Resolved
+            : IssueStatus.Active;
+        var (owner, issue) = await SeedAsync(seedStatus);
+
+        var (success, error) = await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest
+            {
+                Status = nonResolvingTarget,
+                ResolutionPhotoUrls = ["https://cdn.test/after.jpg"]
+            },
+            owner.SupabaseUserId);
+
+        success.Should().BeFalse();
+        error.Should().Be(DomainErrors.ResolutionPhotosRequireResolved);
+
+        // Nothing moved — the guard runs before the transaction opens.
+        using var ctx = _dbFactory.CreateContext();
+        (await ctx.Issues.AsNoTracking().FirstAsync(i => i.Id == issue.Id))
+            .Status.Should().Be(seedStatus);
+    }
+
+    [Fact]
+    public async Task Too_Much_Proof_Should_Be_Rejected_And_Leave_The_Issue_Untouched()
+    {
+        var (owner, issue) = await SeedAsync(IssueStatus.Active);
+
+        var (success, error) = await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest
+            {
+                Status = IssueStatus.Resolved,
+                ResolutionPhotoUrls = Enumerable
+                    .Range(0, IssueValidationLimits.MaxResolutionPhotoCount + 1)
+                    .Select(i => $"https://cdn.test/after-{i}.jpg")
+                    .ToList()
+            },
+            owner.SupabaseUserId);
+
+        success.Should().BeFalse();
+        error.Should().Contain(IssueValidationLimits.MaxResolutionPhotoCount.ToString());
+
+        using var ctx = _dbFactory.CreateContext();
+        (await ctx.Issues.AsNoTracking().FirstAsync(i => i.Id == issue.Id))
+            .Status.Should().Be(IssueStatus.Active);
+        (await ctx.IssueResolutionPhotos.AsNoTracking().ToListAsync()).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("data:text/html;base64,PHNjcmlwdD4=")]
+    [InlineData("file:///etc/passwd")]
+    public async Task Proof_Urls_Should_Meet_The_Same_Scheme_Guard_As_Issue_Photos(string hostileUrl)
+    {
+        // These are echoed back in IssueDetailResponse.ResolutionPhotos and rendered by the same
+        // clients, so a javascript: or data: URI is exactly as dangerous here as on an issue
+        // photo. The guard is shared with IssuePhotoWriter; pinned separately so a later
+        // refactor cannot quietly drop it from this path.
+        var (owner, issue) = await SeedAsync(IssueStatus.Active);
+
+        var (success, _) = await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest
+            {
+                Status = IssueStatus.Resolved,
+                ResolutionPhotoUrls = [hostileUrl]
+            },
+            owner.SupabaseUserId);
+
+        success.Should().BeFalse();
+
+        using var ctx = _dbFactory.CreateContext();
+        (await ctx.Issues.AsNoTracking().FirstAsync(i => i.Id == issue.Id))
+            .Status.Should().Be(IssueStatus.Active);
+    }
+
+    [Fact]
+    public async Task Blank_Proof_Slots_Should_Not_Count_Against_The_Cap()
+    {
+        // A client picker with fixed-size slots sends trailing blanks. They are dropped rather
+        // than counted, so a genuine three-photo set is not rejected as a fourth.
+        var (owner, issue) = await SeedAsync(IssueStatus.Active);
+
+        (await CreateService().UpdateIssueStatusAsync(
+            issue.Id,
+            new UpdateIssueStatusRequest
+            {
+                Status = IssueStatus.Resolved,
+                ResolutionPhotoUrls =
+                [
+                    "https://cdn.test/a.jpg", "  ", "https://cdn.test/b.jpg",
+                    "", "https://cdn.test/c.jpg"
+                ]
+            },
+            owner.SupabaseUserId)).Success.Should().BeTrue();
+
+        using var ctx = _dbFactory.CreateContext();
+        (await ctx.IssueResolutionPhotos.AsNoTracking().OrderBy(p => p.DisplayOrder).ToListAsync())
+            .Select(p => p.Url).Should()
+            .Equal("https://cdn.test/a.jpg", "https://cdn.test/b.jpg", "https://cdn.test/c.jpg");
+    }
+
     /// <summary>
     /// Slips a competing status change in immediately before the service's own transition claim,
     /// so the claim finds the row already moved and matches nothing.

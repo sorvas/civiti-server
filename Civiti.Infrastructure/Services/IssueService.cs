@@ -230,11 +230,17 @@ public class IssueService(
             // what lets them keep working on an Active issue after an edit has pulled it back
             // into the queue. It must stay this narrow — a non-owner passing a known id must
             // not be able to read the content of a non-public issue.
+            // Split, for the reason spelled out in AdminService.RequestChangesAsync: three
+            // collection Includes in one query return their cartesian product, so a resolved
+            // issue at the field limits (8 photos, 3 resolution photos, 5 authorities) would
+            // fetch 120 rows each repeating the full issue text instead of 40.
             IQueryable<Issue> issueQuery = context.Issues
                 .Include(i => i.Photos)
+                .Include(i => i.ResolutionPhotos)
                 .Include(i => i.User)
                 .Include(i => i.IssueAuthorities)
                     .ThenInclude(ia => ia.Authority)
+                .AsSplitQuery()
                 .Where(i => i.Id == id &&
                     (i.Status == IssueStatus.Active || i.Status == IssueStatus.Resolved ||
                      (currentUserId.HasValue && i.UserId == currentUserId.Value)));
@@ -657,6 +663,32 @@ public class IssueService(
         string supabaseUserId,
         bool isAdmin = false)
     {
+        // Resolution photos only mean anything on the way into Resolved. Rejecting them on any
+        // other transition rather than dropping them keeps the client honest: a caller that
+        // attached proof to a cancel has misunderstood the call, and silently succeeding would
+        // hide that until someone noticed the photos were never displayed anywhere.
+        // Counted after dropping blanks, matching what Materialize would actually write: a
+        // client whose picker serialises three fixed slots sends ["", "", ""] on a cancel, and
+        // rejecting that would be rejecting a request that attaches no photos at all.
+        if (request.ResolutionPhotoUrls is not null
+            && request.Status != IssueStatus.Resolved
+            && request.ResolutionPhotoUrls.Any(url => !string.IsNullOrWhiteSpace(url)))
+        {
+            return (false, DomainErrors.ResolutionPhotosRequireResolved);
+        }
+
+        try
+        {
+            IssueResolutionPhotoWriter.Validate(request.ResolutionPhotoUrls);
+        }
+        catch (IssueContentValidationException ex)
+        {
+            // Reported through the result type, and before the transaction opens: this is a
+            // caller mistake, and letting it escape from inside would surface as a 500 and
+            // burn a retry of the whole execution strategy on input that cannot get better.
+            return (false, ex.Message);
+        }
+
         IExecutionStrategy strategy = context.Database.CreateExecutionStrategy();
 
         return await strategy.ExecuteAsync<(bool Success, string? Error)>(async () =>
@@ -715,10 +747,17 @@ public class IssueService(
                 // both pass it and both run the non-idempotent gamification below. The loser
                 // blocks on the row lock, re-evaluates against the committed status, matches no
                 // rows, and is turned away having changed nothing.
+                // Stamped by the same claim as the status, so the two can never disagree: a
+                // reader that sees Resolved always sees the moment it happened, and anything
+                // else always sees null. Cancelled and Active both land on null, which for
+                // Cancelled is already the value — Resolved cannot reach it.
+                DateTime? resolvedAt = request.Status == IssueStatus.Resolved ? changedAt : null;
+
                 int claimedTransition = await context.Issues
                     .Where(i => i.Id == issueId && i.Status == previousStatus)
                     .ExecuteUpdateAsync(setters => setters
                         .SetProperty(i => i.Status, request.Status)
+                        .SetProperty(i => i.ResolvedAt, resolvedAt)
                         .SetProperty(i => i.UpdatedAt, changedAt));
 
                 if (claimedTransition == 0)
@@ -731,6 +770,7 @@ public class IssueService(
                 // and the activity log below. SaveChangesAsync rewrites these same values, which
                 // is harmless — the row lock is already ours.
                 issue.Status = request.Status;
+                issue.ResolvedAt = resolvedAt;
                 issue.UpdatedAt = changedAt;
 
                 bool isResolving = request.Status == IssueStatus.Resolved && previousStatus != IssueStatus.Resolved;
@@ -781,6 +821,38 @@ public class IssueService(
                     }
                 }
 
+                // The author's "after" photos, kept in lockstep with the status inside the same
+                // transaction as the claim that won it. The invariant both branches maintain is
+                // that a resolution photo set exists only while the issue is Resolved, which is
+                // what lets every client render the set on sight instead of re-deriving whether
+                // it is still meaningful.
+                //
+                // Gated on isResolving rather than on the claims above: re-resolving inside the
+                // notify cooldown still replaces the proof, it just does not re-announce it.
+                if (isResolving)
+                {
+                    // Replace, not append. The delete is belt-and-braces — a resolve is only
+                    // reachable from Active, and the re-open that produced that Active already
+                    // cleared the set — but it is what makes "the photos shown are the ones the
+                    // latest resolve attached" true by construction rather than by tracing the
+                    // paths that could have left rows behind.
+                    await context.IssueResolutionPhotos
+                        .Where(p => p.IssueId == issueId)
+                        .ExecuteDeleteAsync();
+
+                    context.IssueResolutionPhotos.AddRange(
+                        IssueResolutionPhotoWriter.Materialize(issueId, request.ResolutionPhotoUrls, changedAt));
+                }
+                else if (isReopening)
+                {
+                    // The proof describes a fix the author has just withdrawn. Leaving the rows
+                    // would strand them on an Active issue where nothing displays them, and they
+                    // would resurface only if a later resolve happened to attach nothing.
+                    await context.IssueResolutionPhotos
+                        .Where(p => p.IssueId == issueId)
+                        .ExecuteDeleteAsync();
+                }
+
                 if (isResolving || isReopening)
                 {
                     // Moved in SQL rather than read-modify-written in memory: an author resolving
@@ -806,20 +878,13 @@ public class IssueService(
                             .SetProperty(u => u.UpdatedAt, changedAt));
                     }
 
-                    // That SQL wrote past the change tracker. When the caller is the owner —
-                    // the normal path here — their profile has been tracked since the top of
-                    // this method, and EF hands that same stale instance back to every later
-                    // query for the row, including the one CheckAndAwardBadgesAsync uses to
-                    // test IssuesResolved against a badge threshold. Reload so the badge check
-                    // sees the count that was just moved.
-                    //
-                    // Reload rather than mirroring the change in memory: an assignment would
-                    // mark the property Modified and SaveChangesAsync would write an absolute
-                    // value back over the atomic move, reintroducing the very lost update the
-                    // move exists to prevent.
-                    if (issue.UserId == userProfile.Id)
-                    {
-                    }
+                    // That SQL wrote past the change tracker, so the owner's tracked profile now
+                    // holds a stale IssuesResolved. Nothing is reloaded here: the only later
+                    // reader that cares is the badge threshold check, and
+                    // CheckAndAwardBadgesAsync reloads the row itself. Mirroring the change in
+                    // memory instead would be actively wrong — the assignment marks the property
+                    // Modified and SaveChangesAsync would write an absolute value back over the
+                    // atomic move, reintroducing the lost update the move exists to prevent.
                 }
 
                 await context.SaveChangesAsync();
@@ -1248,6 +1313,11 @@ public class IssueService(
                 // rolls the edit back.
                 await context.Entry(issue).Reference(i => i.User).LoadAsync();
                 await context.Entry(issue).Collection(i => i.Photos).LoadAsync();
+                // Always empty in practice — an editable issue is never Resolved, and re-opening
+                // deletes the set — but loaded anyway so the response is mapped from the same
+                // complete entity as every other read, rather than reporting an empty collection
+                // it never actually looked at.
+                await context.Entry(issue).Collection(i => i.ResolutionPhotos).LoadAsync();
                 await context.Entry(issue).Collection(i => i.IssueAuthorities).LoadAsync();
 
                 foreach (IssueAuthority issueAuthority in issue.IssueAuthorities.Where(ia => ia.AuthorityId.HasValue))

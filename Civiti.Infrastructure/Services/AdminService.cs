@@ -10,6 +10,7 @@ using Civiti.Application.Requests.Admin;
 using Civiti.Application.Responses.Admin;
 using Civiti.Application.Responses.Authority;
 using Civiti.Application.Responses.Common;
+using Civiti.Application.Responses.Issues;
 using Civiti.Application.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -126,10 +127,14 @@ public class AdminService(
                 .IgnoreQueryFilters()
                 .Include(i => i.User)
                 .Include(i => i.Photos)
+                .Include(i => i.ResolutionPhotos)
                 .Include(i => i.AdminActions)
                     .ThenInclude(aa => aa.AdminUser)
                 .Include(i => i.IssueAuthorities)
                     .ThenInclude(ia => ia.Authority)
+                // Four collection Includes would otherwise come back as their cartesian
+                // product, repeating the whole issue payload on every row.
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(i => i.Id == issueId);
 
             if (issue == null)
@@ -198,6 +203,16 @@ public class AdminService(
                     FileSize = p.FileSize,
                     CreatedAt = p.CreatedAt
                 }).ToList(),
+                ResolutionPhotos = issue.ResolutionPhotos
+                    .OrderBy(p => p.DisplayOrder)
+                    .ThenBy(p => p.Id)
+                    .Select(p => new IssueResolutionPhotoResponse
+                    {
+                        Id = p.Id,
+                        Url = p.Url,
+                        Description = p.Description,
+                        CreatedAt = p.CreatedAt
+                    }).ToList(),
                 Authorities = issue.IssueAuthorities.Select(ia => new IssueAuthorityResponse
                 {
                     AuthorityId = ia.AuthorityId,
@@ -602,9 +617,15 @@ public class AdminService(
                 // collide on its primary key, surfacing as a 500 for whoever lost, and the later
                 // status write would silently overwrite the earlier one. The loser now blocks on
                 // the row lock, re-evaluates against the committed status and is turned away.
+                // ResolvedAt is cleared by the same claim. Approval and rejection both refuse
+                // anything outside Submitted/UnderReview, so this is the only admin route out of
+                // Resolved — leaving the stamp would put a resolution date on an issue that is
+                // back under review, and clients read a non-null ResolvedAt as "this is resolved".
                 var claimed = await context.Issues
                     .Where(i => i.Id == issueId && i.Status == loadedStatus)
-                    .ExecuteUpdateAsync(setters => setters.SetProperty(i => i.Status, IssueStatus.UnderReview));
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(i => i.Status, IssueStatus.UnderReview)
+                        .SetProperty(i => i.ResolvedAt, (DateTime?)null));
 
                 if (claimed == 0)
                 {
@@ -628,7 +649,16 @@ public class AdminService(
                         context, issue, issue.ReviewedAt ?? issue.UpdatedAt);
                 }
 
+                // The author's "after" photos go with the resolution they were proof of. This is
+                // also the admin's lever over them: they are published to a live public page
+                // without passing back through review, so requesting changes has to be able to
+                // take them down, not just hide the issue until it is approved again.
+                await context.IssueResolutionPhotos
+                    .Where(p => p.IssueId == issueId)
+                    .ExecuteDeleteAsync();
+
                 issue.Status = IssueStatus.UnderReview;
+                issue.ResolvedAt = null;
                 issue.AdminNotes = request.RequestedChanges;
                 issue.UpdatedAt = UtcTimestamp.Now();
 

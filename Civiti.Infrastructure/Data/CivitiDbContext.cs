@@ -19,6 +19,7 @@ public class CivitiDbContext(DbContextOptions<CivitiDbContext> options)
     public DbSet<UserProfile> UserProfiles { get; set; } = null!;
     public DbSet<Issue> Issues { get; set; } = null!;
     public DbSet<IssuePhoto> IssuePhotos { get; set; } = null!;
+    public DbSet<IssueResolutionPhoto> IssueResolutionPhotos { get; set; } = null!;
     public DbSet<Badge> Badges { get; set; } = null!;
     public DbSet<Achievement> Achievements { get; set; } = null!;
     public DbSet<UserBadge> UserBadges { get; set; } = null!;
@@ -49,6 +50,7 @@ public class CivitiDbContext(DbContextOptions<CivitiDbContext> options)
         modelBuilder.ApplyConfiguration(new UserProfileConfiguration());
         modelBuilder.ApplyConfiguration(new IssueConfiguration());
         modelBuilder.ApplyConfiguration(new IssuePhotoConfiguration());
+        modelBuilder.ApplyConfiguration(new IssueResolutionPhotoConfiguration());
         modelBuilder.ApplyConfiguration(new BadgeConfiguration());
         modelBuilder.ApplyConfiguration(new AchievementConfiguration());
         modelBuilder.ApplyConfiguration(new UserBadgeConfiguration());

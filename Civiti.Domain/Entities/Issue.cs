@@ -26,6 +26,14 @@ public class Issue
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    // When the issue entered the Resolved state it is in now, for display ("Rezolvată acum N
+    // zile"). Null whenever the issue is not Resolved — re-opening clears it, so it never
+    // describes a resolution the issue has since backed out of. Deliberately not
+    // ResolutionRewardedAt or ResolutionNotifiedAt: those are a once-per-issue latch and an
+    // anti-spam cooldown respectively, so neither tracks the current resolution and both would
+    // misreport it after a resolve/re-open lap.
+    public DateTime? ResolvedAt { get; set; }
+
     // When the author's resolution reward (points, achievement progress, badges) was granted.
     // An author may resolve and re-open the same issue repeatedly; this makes that reward
     // once-per-issue rather than once-per-resolution, so the cycle cannot be farmed. Null for
@@ -51,6 +59,14 @@ public class Issue
     // Navigation properties
     public UserProfile User { get; set; } = null!;
     public List<IssuePhoto> Photos { get; set; } = [];
+
+    /// <summary>
+    /// The author's "after" photos for the resolution this issue is currently in. Empty unless
+    /// <see cref="Status"/> is <see cref="IssueStatus.Resolved"/>. Kept out of
+    /// <see cref="Photos"/> on purpose — see <see cref="IssueResolutionPhoto"/>.
+    /// </summary>
+    public List<IssueResolutionPhoto> ResolutionPhotos { get; set; } = [];
+
     public List<AdminAction> AdminActions { get; set; } = [];
     public List<IssueAuthority> IssueAuthorities { get; set; } = [];
     public List<Activity> Activities { get; set; } = [];
