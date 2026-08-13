@@ -412,6 +412,15 @@ ResendConfiguration resendConfig = new()
 {
     ApiKey = GetEnvOrConfig("RESEND_API_KEY", "Resend:ApiKey") ?? string.Empty,
     FromEmail = GetEnvOrConfig("RESEND_FROM_EMAIL", "Resend:FromEmail") ?? "Civiti <noreply@civiti.ro>",
+    // Inherits the poster's URL unless explicitly overridden, and that inheritance is the point:
+    // there is one frontend, so one setting should decide where every link we emit points.
+    //
+    // Resend:FrontendBaseUrl is deliberately absent from appsettings.json. A value there
+    // satisfies GetEnvOrConfig on every environment, so this fallback never runs and the
+    // Production override that appsettings.Production.json applies to Poster is silently
+    // bypassed — which is exactly how every notification email came to link at
+    // http://localhost:4200 while the QR posters pointed at civiti.ro. If it is ever added
+    // back, add the matching Production override in the same commit.
     FrontendBaseUrl = GetEnvOrConfig("RESEND_FRONTEND_BASE_URL", "Resend:FrontendBaseUrl") ?? posterConfig.FrontendBaseUrl,
     DebounceMinutes = GetEnvOrConfigInt("RESEND_DEBOUNCE_MINUTES", "Resend:DebounceMinutes", 5)
 };
@@ -419,7 +428,11 @@ builder.Services.AddSingleton(resendConfig);
 
 if (resendConfig.IsConfigured)
 {
-    Log.Information("Resend email configured with from: {FromEmail}", resendConfig.FromEmail);
+    // The link target is logged beside the sender because it is the half that fails silently:
+    // a wrong FromEmail bounces loudly, a wrong FrontendBaseUrl just sends everyone to a dead
+    // link and nothing in the system notices.
+    Log.Information("Resend email configured with from: {FromEmail}, links to: {FrontendBaseUrl}",
+        resendConfig.FromEmail, resendConfig.FrontendBaseUrl);
 }
 else
 {
